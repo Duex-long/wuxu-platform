@@ -53,7 +53,7 @@ GitHub Actions 会将生产镜像分别发布到 GHCR，部署机上的 Compose 
 通过统一入口对外提供服务：
 
 - 用户端：`/`
-- 管理后台：`/admin/`（访问 `/admin` 会跳转到 `/admin/`）
+- 管理后台：`/admin/`（数据中心）、`/admin/categories`（类目管理）、`/admin/locations`（位置管理）；访问 `/admin` 会跳转到 `/admin/`
 - API：`/api/`
 
 部署命令、环境变量和路由说明见 [`docs/deployment.md`](docs/deployment.md)。

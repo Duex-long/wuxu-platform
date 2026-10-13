@@ -19,13 +19,13 @@ input:focus, select:focus, textarea:focus { border-color: #5487e7; box-shadow: 0
 
 .admin-shell { min-height: 100vh; display: grid; grid-template-columns: 245px 1fr; }
 .sidebar { position: sticky; top: 0; height: 100vh; padding: 26px 20px; display: flex; flex-direction: column; color: #d9e1ef; background: #161f32; }
-.brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; }
+.brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; color: inherit; text-decoration: none; }
 .brand > span { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 10px; background: #6592e9; color: #fff; font-family: Georgia, serif; font-size: 20px; }
 .brand strong, .brand small { display: block; }
 .brand small { margin-top: 2px; color: #77859d; font-size: 8px; letter-spacing: .15em; }
 nav { margin-top: 45px; display: grid; gap: 7px; }
 nav a { padding: 12px 13px; display: flex; gap: 11px; border-radius: 8px; color: #8e9bb1; text-decoration: none; font-size: 14px; }
-nav a.active { color: #f3f6fb; background: #24314a; }
+nav a.active, nav a.router-link-active { color: #f3f6fb; background: #24314a; }
 .sidebar-foot { margin-top: auto; padding: 17px 10px 0; display: grid; gap: 6px; border-top: 1px solid #2b374d; }
 .sidebar-foot small { color: #77859d; }
 .sidebar-foot button { padding: 7px 0; border: 0; color: #8e9bb1; background: transparent; text-align: left; }
@@ -33,6 +33,8 @@ nav a.active { color: #f3f6fb; background: #24314a; }
 .workspace { min-width: 0; padding: 34px 40px 60px; }
 .workspace > header { display: flex; justify-content: space-between; align-items: center; }
 .workspace h1 { margin: 0; font-size: 30px; }
+.page-description { margin: 8px 0 0; color: #7d8797; font-size: 13px; }
+.management-summary { padding: 9px 13px; border-radius: 20px; color: #31558d; background: #dfeafb; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .readonly-badge { padding: 8px 12px; border-radius: 20px; color: #31558d; background: #dfeafb; font-size: 12px; font-weight: 800; }
 .metrics { margin: 28px 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .metrics-wide { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -54,6 +56,7 @@ nav a.active { color: #f3f6fb; background: #24314a; }
 .category-ranking strong { color: #24314a; }
 .empty-insight { padding: 30px 0; color: #97a0ae; text-align: center; }
 .location-management, .category-management { margin-bottom: 16px; }
+.standalone-management { margin-top: 28px; }
 .category-management > .card-heading, .location-management > .card-heading { display: flex; justify-content: space-between; align-items: end; }
 .category-management > .card-heading > span, .location-management > .card-heading > span { color: #8c96a6; font-size: 12px; }
 .category-admin-layout { margin-top: 22px; display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: start; }
@@ -125,7 +128,11 @@ td small { margin-top: 5px; max-width: 180px; overflow: hidden; color: #98a1af; 
 }
 
 @media (max-width: 620px) {
-  .sidebar nav { display: none; }
+  .sidebar { flex-wrap: wrap; gap: 18px; padding: 20px; }
+  .sidebar nav { width: 100%; margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .sidebar nav a { padding: 10px 8px; justify-content: center; text-align: center; font-size: 12px; }
+  .workspace > header { align-items: flex-start; gap: 14px; }
+  .management-summary, .readonly-badge { flex: 0 0 auto; }
   .metrics { grid-template-columns: 1fr; }
   .filters { grid-template-columns: 1fr; }
 }
