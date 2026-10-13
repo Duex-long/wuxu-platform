@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { LocationSummary } from "@wuxu/shared-types";
 
@@ -7,7 +7,7 @@ import { CurrentUser } from "../../common/current-user.decorator";
 import { JwtAuthGuard } from "../../common/jwt-auth.guard";
 import { Roles } from "../../common/roles.decorator";
 import { RolesGuard } from "../../common/roles.guard";
-import { CreateLocationDto, UpdateLocationDto } from "./location.dto";
+import { CreateLocationDto, ListLocationsQueryDto, UpdateLocationDto } from "./location.dto";
 import { LocationsService } from "./locations.service";
 
 @ApiTags("locations")
@@ -18,8 +18,22 @@ export class LocationsController {
   constructor(private readonly locationsService: LocationsService) {}
 
   @Get()
-  list(@CurrentUser() user: AuthenticatedUser): Promise<LocationSummary[]> {
-    return this.locationsService.listForUser(user.id);
+  list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ListLocationsQueryDto,
+  ): Promise<LocationSummary[]> {
+    return this.locationsService.listForUser(user.id, query);
+  }
+
+  @Post()
+  create(@CurrentUser() user: AuthenticatedUser, @Body() input: CreateLocationDto): Promise<LocationSummary> {
+    return this.locationsService.createPersonal(user.id, input);
+  }
+
+  @Delete(":id")
+  @HttpCode(204)
+  async remove(@CurrentUser() user: AuthenticatedUser, @Param("id") id: string): Promise<void> {
+    await this.locationsService.removePersonal(user.id, id);
   }
 }
 
@@ -32,13 +46,13 @@ export class AdminLocationsController {
   constructor(private readonly locationsService: LocationsService) {}
 
   @Get()
-  list(): Promise<LocationSummary[]> {
-    return this.locationsService.listForAdmin();
+  list(@Query() query: ListLocationsQueryDto): Promise<LocationSummary[]> {
+    return this.locationsService.listForAdmin(query);
   }
 
   @Post()
   create(@CurrentUser() user: AuthenticatedUser, @Body() input: CreateLocationDto): Promise<LocationSummary> {
-    return this.locationsService.create(user.id, input);
+    return this.locationsService.createGlobal(user.id, input);
   }
 
   @Patch(":id")
@@ -53,6 +67,6 @@ export class AdminLocationsController {
   @Delete(":id")
   @HttpCode(204)
   async remove(@CurrentUser() user: AuthenticatedUser, @Param("id") id: string): Promise<void> {
-    await this.locationsService.remove(user.id, id);
+    await this.locationsService.removeAsAdmin(user.id, id);
   }
 }

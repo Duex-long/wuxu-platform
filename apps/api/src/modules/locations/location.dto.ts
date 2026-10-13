@@ -14,9 +14,17 @@ export class CreateLocationDto {
   @MaxLength(300)
   description?: string | null;
 
-  @ApiProperty({ description: "管理员先通过图片接口上传得到的图片 ID" })
+  @ApiProperty({ description: "创建者先通过图片接口上传得到的图片 ID" })
   @IsMongoId()
   photoImageId: string;
 }
 
 export class UpdateLocationDto extends PartialType(CreateLocationDto) {}
+
+export class ListLocationsQueryDto {
+  @ApiPropertyOptional({ description: "按位置名称或说明搜索" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  keyword?: string;
+}

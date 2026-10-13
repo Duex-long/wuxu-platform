@@ -20,6 +20,12 @@ export class StorageLocation {
   @Prop({ required: true })
   createdBy: string;
 
+  @Prop({ enum: ["GLOBAL", "PERSONAL"], default: "GLOBAL", index: true })
+  scope: "GLOBAL" | "PERSONAL";
+
+  @Prop({ type: String, default: null, index: true })
+  ownerId: string | null;
+
   @Prop({ type: Date, default: null, index: true })
   deletedAt: Date | null;
 
@@ -29,3 +35,4 @@ export class StorageLocation {
 
 export const StorageLocationSchema = SchemaFactory.createForClass(StorageLocation);
 StorageLocationSchema.index({ normalizedName: 1, deletedAt: 1 });
+StorageLocationSchema.index({ scope: 1, ownerId: 1, deletedAt: 1, normalizedName: 1 });

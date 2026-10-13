@@ -90,7 +90,10 @@ export class MediaService implements OnApplicationBootstrap {
   async getAccessible(user: AuthenticatedUser, id: string): Promise<{ asset: MediaAssetDocument; body: Uint8Array }> {
     const asset = await this.findById(id);
     const linkedLocationId = asset.linkedLocationId ?? null;
-    if (user.role !== "ADMIN" && asset.ownerId !== user.id && linkedLocationId === null) {
+    const linkedLocationOwnerId = asset.linkedLocationOwnerId ?? null;
+    const canReadLocationPhoto = linkedLocationId !== null
+      && (linkedLocationOwnerId === null || linkedLocationOwnerId === user.id);
+    if (user.role !== "ADMIN" && asset.ownerId !== user.id && !canReadLocationPhoto) {
       throw new NotFoundException("图片不存在");
     }
     const output = await this.s3.send(new GetObjectCommand({ Bucket: this.bucket, Key: asset.objectKey }));
@@ -144,6 +147,7 @@ export class MediaService implements OnApplicationBootstrap {
   async syncLocationLink(
     ownerId: string,
     locationId: string,
+    locationOwnerId: string | null,
     previousId: string | null,
     nextId: string | null,
   ): Promise<void> {
@@ -151,13 +155,13 @@ export class MediaService implements OnApplicationBootstrap {
     if (previousId !== null && previousId !== nextId) {
       await this.mediaModel.updateOne(
         { _id: new Types.ObjectId(previousId), linkedLocationId: locationId },
-        { $set: { linkedLocationId: null } },
+        { $set: { linkedLocationId: null, linkedLocationOwnerId: null } },
       );
     }
     if (nextId !== null && nextId !== previousId) {
       await this.mediaModel.updateOne(
         { _id: new Types.ObjectId(nextId), ownerId, deletedAt: null },
-        { $set: { linkedLocationId: locationId } },
+        { $set: { linkedLocationId: locationId, linkedLocationOwnerId: locationOwnerId } },
       );
     }
   }

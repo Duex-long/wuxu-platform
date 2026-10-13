@@ -45,7 +45,7 @@ export class CreateItemDto {
   @MaxLength(20)
   unit: string;
 
-  @ApiPropertyOptional({ nullable: true, description: "由管理后台创建的存放位置 ID" })
+  @ApiPropertyOptional({ nullable: true, description: "全局位置或当前用户个人位置的 ID" })
   @IsOptional()
   @IsMongoId()
   locationId?: string | null;

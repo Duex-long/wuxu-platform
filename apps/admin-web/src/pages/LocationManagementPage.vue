@@ -133,24 +133,24 @@ onBeforeUnmount(() => { releasePhotoUrls(); clearDraft(); });
 
 <template>
   <AdminShell>
-    <header><div><p class="eyebrow">STORAGE LOCATIONS</p><h1>位置管理</h1><p class="page-description">创建带照片的标准存放位置，并查看各位置中的物品。</p></div><div class="management-summary">{{ locations.length }} 个存放位置</div></header>
+    <header><div><p class="eyebrow">STORAGE LOCATIONS</p><h1>位置管理</h1><p class="page-description">创建全局位置，并统一查看全局及用户个人位置。</p></div><div class="management-summary">{{ locations.length }} 个存放位置</div></header>
 
     <p v-if="error" class="error">{{ error }}</p>
     <section class="data-card location-management standalone-management">
-      <div class="card-heading"><div><p class="eyebrow">CONTROLLED LOCATIONS</p><h2>存放位置</h2></div><span>用户端只能选择这里创建的位置</span></div>
+      <div class="card-heading"><div><p class="eyebrow">CONTROLLED LOCATIONS</p><h2>存放位置</h2></div><span>此处创建全局位置；用户也可创建仅自己可见的个人位置</span></div>
       <div class="location-admin-layout">
         <form class="location-form" @submit.prevent="createLocation">
           <label>位置名称<input v-model="draft.name" maxlength="80" required placeholder="例如：书房左侧柜" /></label>
           <label>位置说明<textarea v-model="draft.description" maxlength="300" rows="3" placeholder="例如：靠窗的白色五层柜"></textarea></label>
           <label class="location-photo-picker">位置照片<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" @change="selectPhoto" /><span v-if="previewUrl"><img :src="previewUrl" alt="待上传的位置照片" /></span><small v-else>必须上传一张照片，最大 10MB</small></label>
-          <button type="submit" :disabled="saving">{{ saving ? '创建中…' : '创建位置' }}</button>
+          <button type="submit" :disabled="saving">{{ saving ? '创建中…' : '创建全局位置' }}</button>
         </form>
         <div v-if="loading" class="empty-insight">正在读取存放位置…</div>
         <div v-else-if="locations.length" class="admin-location-grid">
           <article v-for="location in locations" :key="location.id">
             <img v-if="photoUrls[location.id]" :src="photoUrls[location.id]" :alt="location.name" />
             <div v-else class="admin-location-fallback">序</div>
-            <div><strong>{{ location.name }}</strong><p>{{ location.description ?? '暂无说明' }}</p><small>{{ location.itemCount }} 件物品</small><span><button type="button" @click="showLocationItems(location.id)">查看物品</button><button class="remove-location" type="button" @click="removeLocation(location)">删除</button></span></div>
+            <div><strong>{{ location.name }} <em :class="`admin-scope-${location.scope.toLowerCase()}`">{{ location.scope === 'PERSONAL' ? '个人' : '全局' }}</em></strong><p>{{ location.description ?? '暂无说明' }}</p><small>{{ location.itemCount }} 件物品</small><span><button type="button" @click="showLocationItems(location.id)">查看物品</button><button class="remove-location" type="button" @click="removeLocation(location)">删除</button></span></div>
           </article>
         </div>
         <div v-else class="empty-insight">尚未创建存放位置</div>

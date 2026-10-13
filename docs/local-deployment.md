@@ -81,6 +81,8 @@ curl http://localhost:3100/api/health/live
 | 用户端首页 | http://localhost:5173/ |
 | 用户端查找物品 | http://localhost:5173/items/search |
 | 用户端新增物品 | http://localhost:5173/items/new |
+| 用户端查找位置 | http://localhost:5173/locations/search |
+| 用户端新增位置 | http://localhost:5173/locations/new |
 | 后台数据中心 | http://localhost:5174/ |
 | 后台类目管理 | http://localhost:5174/categories |
 | 后台位置管理 | http://localhost:5174/locations |
@@ -99,10 +101,11 @@ curl http://localhost:3100/api/health/live
 ### 4. 首次使用顺序
 
 1. 使用管理员账号进入后台类目管理页面，创建大类目和小类目。
-2. 进入后台位置管理页面，创建存放位置并上传位置照片。
+2. 按需进入后台位置管理页面，创建所有用户可见的全局位置并上传位置照片。
 3. 使用普通用户账号登录用户端。
-4. 在新增物品页面登记物品，并从后台维护的类目和位置中选择。
-5. 在查找物品页面确认登记结果，或更新使用中、未使用、已损坏和已消耗状态。
+4. 如需个人位置，在用户端“新增位置”页面创建并上传照片，再到“查找位置”确认结果。
+5. 在新增物品页面登记物品，并从后台维护的类目、全局位置或本人的个人位置中选择。
+6. 在查找物品页面确认登记结果，或更新使用中、未使用、已损坏和已消耗状态。
 
 系统在没有后台类目时会提供“未分类”兜底类目，但建议先完成正式类目配置。
 
@@ -194,6 +197,8 @@ docker compose --env-file .env.production -f compose.production.yaml ps
 | 功能 | 地址 |
 | --- | --- |
 | 用户端 | http://localhost:8080/ |
+| 用户端查找位置 | http://localhost:8080/locations/search |
+| 用户端新增位置 | http://localhost:8080/locations/new |
 | 后台数据中心 | http://localhost:8080/admin/ |
 | 后台类目管理 | http://localhost:8080/admin/categories |
 | 后台位置管理 | http://localhost:8080/admin/locations |

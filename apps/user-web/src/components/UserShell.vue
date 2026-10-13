@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import { useAuthStore } from "../stores/auth";
 
 const auth = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 
 async function signOut(): Promise<void> {
   auth.signOut();
@@ -23,6 +24,7 @@ async function signOut(): Promise<void> {
         <RouterLink :to="{ name: 'home' }">首页</RouterLink>
         <RouterLink :to="{ name: 'item-search' }">查找物品</RouterLink>
         <RouterLink :to="{ name: 'item-create' }">新增物品</RouterLink>
+        <RouterLink :class="{ active: String(route.name).startsWith('location-') }" :to="{ name: 'location-search' }">存放位置</RouterLink>
       </nav>
       <div class="user-menu">
         <span>{{ auth.user?.displayName }}</span>
@@ -34,7 +36,8 @@ async function signOut(): Promise<void> {
 
     <nav class="mobile-nav" aria-label="移动端主导航">
       <RouterLink :to="{ name: 'home' }"><span>⌂</span>首页</RouterLink>
-      <RouterLink :to="{ name: 'item-search' }"><span>⌕</span>查找</RouterLink>
+      <RouterLink :to="{ name: 'item-search' }"><span>⌕</span>物品</RouterLink>
+      <RouterLink :class="{ active: String(route.name).startsWith('location-') }" :to="{ name: 'location-search' }"><span>⌖</span>位置</RouterLink>
       <RouterLink :to="{ name: 'item-create' }"><span>＋</span>新增</RouterLink>
     </nav>
   </div>

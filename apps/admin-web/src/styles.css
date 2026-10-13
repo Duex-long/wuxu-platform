@@ -89,6 +89,9 @@ nav a.active, nav a.router-link-active { color: #f3f6fb; background: #24314a; }
 .admin-location-fallback { display: grid; place-items: center; color: #527cc8; background: #e4edfc; font-family: Georgia, serif; font-size: 26px; }
 .admin-location-grid article > div:last-child { min-width: 0; padding: 13px; }
 .admin-location-grid strong, .admin-location-grid p, .admin-location-grid small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-location-grid strong em { margin-left: 5px; padding: 3px 6px; border-radius: 12px; font-size: 8px; font-style: normal; vertical-align: middle; }
+.admin-scope-global { color: #31558d; background: #dfeafb; }
+.admin-scope-personal { color: #79572e; background: #f4e8d4; }
 .admin-location-grid p { margin: 7px 0; color: #8993a2; font-size: 11px; }
 .admin-location-grid small { color: #5879ae; font-weight: 800; }
 .admin-location-grid span { margin-top: 13px; display: flex; gap: 12px; }

@@ -29,6 +29,9 @@ export class MediaAsset {
   @Prop({ type: String, default: null, index: true })
   linkedLocationId: string | null;
 
+  @Prop({ type: String, default: null, index: true })
+  linkedLocationOwnerId: string | null;
+
   @Prop({ type: Date, default: null, index: true })
   deletedAt: Date | null;
 

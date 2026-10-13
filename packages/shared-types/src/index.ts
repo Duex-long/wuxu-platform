@@ -78,11 +78,16 @@ export interface ImageAssetSummary {
   createdAt: string;
 }
 
+export const LOCATION_SCOPES = ["GLOBAL", "PERSONAL"] as const;
+export type LocationScope = (typeof LOCATION_SCOPES)[number];
+
 export interface LocationSummary {
   id: string;
   name: string;
   description?: string;
   photoImageId: string;
+  scope: LocationScope;
+  ownerId?: string;
   itemCount: number;
   createdAt: string;
   updatedAt: string;

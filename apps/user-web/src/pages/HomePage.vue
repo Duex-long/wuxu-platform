@@ -91,10 +91,16 @@ onBeforeUnmount(releaseLocationPhotoUrls);
       <RouterLink class="entry-card entry-create" :to="{ name: 'item-create' }">
         <span>＋</span><div><p class="eyebrow">ADD</p><h2>新增物品</h2><p>登记数量、存放位置、保质期、消耗周期和图片。</p></div><strong>开始登记 →</strong>
       </RouterLink>
+      <RouterLink class="entry-card entry-location-search" :to="{ name: 'location-search' }">
+        <span>⌖</span><div><p class="eyebrow">LOCATE</p><h2>查找位置</h2><p>查找全局位置和个人位置，查看每个位置中的物品。</p></div><strong>查找位置 →</strong>
+      </RouterLink>
+      <RouterLink class="entry-card entry-location-create" :to="{ name: 'location-create' }">
+        <span>＋</span><div><p class="eyebrow">NEW PLACE</p><h2>新增位置</h2><p>用名称、说明和照片记录一个仅自己可见的位置。</p></div><strong>创建位置 →</strong>
+      </RouterLink>
     </section>
 
     <section class="card location-panel">
-      <div class="section-heading"><div><p class="eyebrow">存放地图</p><h2>按位置查看</h2></div><span>位置由管理员统一创建</span></div>
+      <div class="section-heading"><div><p class="eyebrow">存放地图</p><h2>按位置查看</h2></div><span>包含全局位置与我的个人位置</span></div>
       <div v-if="loading" class="empty-state">正在读取位置…</div>
       <div v-else-if="locations.length" class="location-grid">
         <button v-for="location in locations" :key="location.id" type="button" class="location-card" @click="openLocation(location.id)">
@@ -103,7 +109,7 @@ onBeforeUnmount(releaseLocationPhotoUrls);
           <span><strong>{{ location.name }}</strong><small>{{ location.description ?? '暂无说明' }}</small><em>{{ location.itemCount }} 件物品</em></span>
         </button>
       </div>
-      <div v-else class="empty-state">管理员尚未创建存放位置</div>
+      <div v-else class="empty-state">还没有可用位置，可以先创建一个个人位置</div>
     </section>
   </UserShell>
 </template>

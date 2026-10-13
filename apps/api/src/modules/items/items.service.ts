@@ -30,7 +30,7 @@ export class ItemsService {
 
   async create(ownerId: string, input: CreateItemDto): Promise<ItemDetail> {
     const category = await this.categoriesService.resolveSelection(input.bigCategoryId, input.smallCategoryId);
-    const location = await this.locationsService.resolveSelection(input.locationId);
+    const location = await this.locationsService.resolveSelection(input.locationId, ownerId);
     const imageIds = input.imageIds ?? [];
     const isConsumable = input.isConsumable ?? false;
     const expectedConsumptionDays = this.resolveExpectedConsumptionDays(
@@ -94,7 +94,7 @@ export class ItemsService {
     }
 
     if (input.locationId !== undefined) {
-      const location = await this.locationsService.resolveSelection(input.locationId);
+      const location = await this.locationsService.resolveSelection(input.locationId, ownerId);
       item.locationId = location.locationId;
       item.location = location.location;
     }
