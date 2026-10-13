@@ -45,7 +45,7 @@ docker compose up -d
 - API：http://localhost:3100/api
 - Swagger：http://localhost:3100/api/docs
 
-从零启动、两种运行模式、默认账号和故障排查见 [`docs/local-deployment.md`](docs/local-deployment.md)。开发环境的固定版本与热更新说明见 [`docs/development.md`](docs/development.md)。
+从零启动、镜像部署、远程源码构建、默认账号和故障排查见 [`docs/local-deployment.md`](docs/local-deployment.md)。开发环境的固定版本与热更新说明见 [`docs/development.md`](docs/development.md)。
 
 ## 单机部署
 

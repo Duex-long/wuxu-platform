@@ -1,0 +1,19 @@
+# Optional override for hosts that should fetch the repository and build locally.
+# Use together with compose.production.yaml; do not use --pull always for this mode.
+
+services:
+  api:
+    image: ${SOURCE_SERVER_IMAGE:-wuxu/server-source}:${SOURCE_IMAGE_TAG:-local}
+    pull_policy: build
+    build:
+      context: "${SOURCE_GIT_URL:-https://github.com/Duex-long/wuxu-platform.git}#${SOURCE_GIT_REF:-main}"
+      dockerfile: Dockerfile
+      target: api-runtime
+
+  gateway:
+    image: ${SOURCE_WEB_IMAGE:-wuxu/web-source}:${SOURCE_IMAGE_TAG:-local}
+    pull_policy: build
+    build:
+      context: "${SOURCE_GIT_URL:-https://github.com/Duex-long/wuxu-platform.git}#${SOURCE_GIT_REF:-main}"
+      dockerfile: Dockerfile
+      target: web-runtime

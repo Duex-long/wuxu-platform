@@ -8,15 +8,17 @@
 | --- | --- | --- | --- |
 | 源码开发模式 | 修改代码、调试、热更新 | `5173`、`5174`、`3100`，并暴露数据库和对象存储端口 | 本地源码构建 |
 | 单机运行模式 | 个人长期使用、模拟正式部署 | 默认只暴露 `8080` | 从 GHCR 拉取已构建镜像 |
+| 远程源码构建模式 | 部署机自动拉取指定 Git 版本并自行构建 | 默认只暴露 `8080` | Docker BuildKit 从 Git 获取源码 |
 
-如果只是使用系统而不修改代码，建议选择单机运行模式。如果需要继续开发功能，选择源码开发模式。
+如果只是使用系统而不修改代码，建议选择单机运行模式。如果需要继续开发功能，选择源码开发模式。只有明确要求部署机自行编译时，才选择远程源码构建模式。
 
 ## 部署前准备
 
 宿主机需要安装：
 
-- Git
 - Docker Desktop，或 Docker Engine 与 Docker Compose v2
+
+源码开发模式还需要 Git。单机镜像模式和远程源码构建模式可以只保存部署配置文件，不要求在宿主机克隆完整源码。
 
 先确认 Docker 可以正常使用：
 
@@ -223,6 +225,90 @@ docker compose --env-file .env.production -f compose.production.yaml up -d --pul
 
 更新容器不会删除 MySQL、MongoDB 和对象存储的数据卷。
 
+## 方式三 运行 Compose 时自动拉取源码
+
+Docker Compose 本身不应在已经启动的业务容器中执行 `git pull`。项目通过 `compose.source-build.yaml` 将 Git 仓库配置为 Docker BuildKit 的远程构建上下文；每次执行构建时，Docker 会获取 `SOURCE_GIT_REF` 指定的源码版本，再生成并启动 Web 与 Server 镜像。
+
+该模式仍然使用 `compose.production.yaml` 中的 MySQL、MongoDB、对象存储、健康检查和统一 Nginx 入口。
+
+### 1. 准备最小部署目录
+
+部署机不需要克隆完整仓库，只需保存两个 Compose 文件和一份本地环境文件：
+
+```bash
+mkdir wuxu-deploy
+cd wuxu-deploy
+curl -fsSL https://raw.githubusercontent.com/Duex-long/wuxu-platform/main/compose.production.yaml -o compose.production.yaml
+curl -fsSL https://raw.githubusercontent.com/Duex-long/wuxu-platform/main/compose.source-build.yaml -o compose.source-build.yaml
+curl -fsSL https://raw.githubusercontent.com/Duex-long/wuxu-platform/main/.env.production.example -o .env.production
+chmod 600 .env.production
+```
+
+Compose 文件负责描述部署，业务源码会在后续构建阶段由 BuildKit 从 `SOURCE_GIT_URL` 获取。
+
+### 2. 配置源码版本
+
+在 `.env.production` 中设置：
+
+```dotenv
+SOURCE_GIT_URL=https://github.com/Duex-long/wuxu-platform.git
+SOURCE_GIT_REF=main
+SOURCE_IMAGE_TAG=local
+SOURCE_WEB_IMAGE=wuxu/web-source
+SOURCE_SERVER_IMAGE=wuxu/server-source
+```
+
+`SOURCE_GIT_REF` 可以是：
+
+- `main` 等分支名：每次构建获取该分支当前代码。
+- `v1.0.0` 等标签：部署明确发布版本。
+- 完整 Git commit SHA：获得最稳定、可重复的构建结果。
+
+正式使用时建议固定标签或完整 commit SHA，避免同一条命令在不同时间构建出不同版本。
+
+### 3. 自动拉取源码并部署
+
+```bash
+docker compose \
+  --env-file .env.production \
+  -f compose.production.yaml \
+  -f compose.source-build.yaml \
+  up -d --build
+```
+
+这条命令会：
+
+1. 从 `SOURCE_GIT_URL` 获取 `SOURCE_GIT_REF` 对应代码。
+2. 使用仓库根目录的 `Dockerfile` 构建 `api-runtime` 和 `web-runtime`。
+3. 等待 MySQL、MongoDB、对象存储和 API 健康检查通过。
+4. 启动统一的 Nginx 入口。
+
+此模式不要附加 `--pull always`；`pull_policy: build` 已明确要求本地构建服务镜像。Docker 仍会按需拉取 Dockerfile 使用的 Node 和 Nginx 基础镜像。
+
+### 4. 更新远程源码部署
+
+修改 `SOURCE_GIT_REF`，或者保持分支名不变并重新执行：
+
+```bash
+docker compose \
+  --env-file .env.production \
+  -f compose.production.yaml \
+  -f compose.source-build.yaml \
+  up -d --build
+```
+
+BuildKit 会检查远程 Git 引用；源码提交没有变化时可以复用构建缓存。更新容器不会删除持久化数据卷。
+
+停止服务时必须继续同时传入两个 Compose 文件：
+
+```bash
+docker compose \
+  --env-file .env.production \
+  -f compose.production.yaml \
+  -f compose.source-build.yaml \
+  down
+```
+
 ## 日常运维命令
 
 源码开发模式：
@@ -281,6 +367,10 @@ docker compose logs --tail=200 mysql mongodb object-storage api
 ```
 
 常见原因包括 Docker 可用内存不足、数据库首次启动尚未完成、环境变量错误，或者旧数据卷中的账号密码与新配置不一致。
+
+### 远程源码无法拉取
+
+先确认部署机可以访问 `SOURCE_GIT_URL`，并确认 `SOURCE_GIT_REF` 是存在的分支、标签或提交。当前默认仓库是公开仓库；如果将来改为私有仓库，需要额外配置 BuildKit 的 Git 身份验证，不能只依赖业务镜像使用的 GHCR 登录状态。
 
 ### 修改代码后页面没有变化
 

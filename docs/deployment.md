@@ -4,6 +4,9 @@
 部署机上的 Docker Compose 只拉取镜像，不需要 Node.js、pnpm 或项目源码。一个 Nginx 容器提供统一
 入口，NestJS、MySQL、MongoDB 和对象存储只在 Compose 内部网络通信，不直接暴露端口。
 
+如果部署机必须自行获取源码并构建，可以在本文件基础上叠加
+[`compose.source-build.yaml`](../compose.source-build.yaml)。该覆盖文件把 Git 仓库作为 BuildKit 远程构建上下文，具体命令见[本地部署指南](local-deployment.md#方式三-运行-compose-时自动拉取源码)。
+
 ## 镜像发布
 
 推送到 `main` 后，[`publish-images.yml`](../.github/workflows/publish-images.yml) 会发布两个多架构镜像：
