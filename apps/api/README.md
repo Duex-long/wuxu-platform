@@ -24,3 +24,5 @@ MySQL 保存用户与身份数据，MongoDB 保存类目和物品领域数据，
 
 开发环境请从 Monorepo 根目录运行 `docker compose up --build`。
 
+完整的后端设计架构见 [`docs/backend-architecture.md`](../../docs/backend-architecture.md)。
+

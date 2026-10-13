@@ -47,6 +47,8 @@ docker compose up -d
 
 从零启动、镜像部署、远程源码构建、默认账号和故障排查见 [`docs/local-deployment.md`](docs/local-deployment.md)。开发环境的固定版本与热更新说明见 [`docs/development.md`](docs/development.md)。
 
+后端的模块边界、数据架构、接口权限、核心流程、一致性策略与演进建议见 [`docs/backend-architecture.md`](docs/backend-architecture.md)。
+
 ## 单机部署
 
 GitHub Actions 会将生产镜像分别发布到 GHCR，部署机上的 Compose 只负责拉取并启动。Nginx
