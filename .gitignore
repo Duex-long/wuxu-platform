@@ -8,7 +8,9 @@ coverage/
 .env
 .env.*
 !.env.example
+!.env.production.example
 *.log
+*.tsbuildinfo
 tmp/
 .turbo/
 .nx/

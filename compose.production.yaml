@@ -1,0 +1,106 @@
+name: ${COMPOSE_PROJECT_NAME:-wuxu-production}
+
+services:
+  mysql:
+    image: mysql:8.4.6
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_production_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:8.0.14
+    volumes:
+      - mongo_production_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  object-storage:
+    image: chrislusf/seaweedfs:3.94
+    command: "server -dir=/data -s3 -s3.port=8333 -volume.max=20"
+    volumes:
+      - object_production_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9333/cluster/status"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  api:
+    image: ${SERVER_IMAGE:-ghcr.io/duex-long/wuxu-server}:${SERVER_IMAGE_TAG:-latest}
+    pull_policy: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_SYNCHRONIZE: ${MYSQL_SYNCHRONIZE:-true}
+      MONGODB_URI: mongodb://mongodb:27017/${MONGODB_DATABASE:-wuxu}
+      S3_ENDPOINT: http://object-storage:8333
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-wuxu-items}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-2h}
+      CORS_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      SEED_DEV_USERS: ${SEED_INITIAL_USERS:-false}
+      DEV_USER_EMAIL: ${INITIAL_USER_EMAIL}
+      DEV_USER_PASSWORD: ${INITIAL_USER_PASSWORD}
+      DEV_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL}
+      DEV_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      object-storage:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health/live').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  gateway:
+    image: ${WEB_IMAGE:-ghcr.io/duex-long/wuxu-web}:${WEB_IMAGE_TAG:-latest}
+    pull_policy: always
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  mysql_production_data:
+  mongo_production_data:
+  object_production_data:
