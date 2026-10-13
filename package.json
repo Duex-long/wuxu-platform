@@ -1,0 +1,12 @@
+{
+  "name": "wuxu-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Wuxu personal inventory management platform monorepo",
+  "license": "UNLICENSED",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
+
