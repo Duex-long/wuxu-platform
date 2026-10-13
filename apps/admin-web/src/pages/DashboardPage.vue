@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AuthUser, ImageAssetSummary, InventoryStatistics, ItemStatus, ItemSummary, LocationSummary, PaginatedResponse } from "@wuxu/shared-types";
+import type { AuthUser, CategoryNode, ImageAssetSummary, InventoryStatistics, ItemStatus, ItemSummary, LocationSummary, PaginatedResponse } from "@wuxu/shared-types";
 import { onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 
@@ -35,6 +35,11 @@ const locationSaving = ref(false);
 const locationFile = ref<File | null>(null);
 const locationPreviewUrl = ref<string | null>(null);
 const locationDraft = reactive({ name: "", description: "" });
+const categories = ref<CategoryNode[]>([]);
+const categorySaving = ref(false);
+const newBigCategory = ref("");
+const newSmallCategory = ref("");
+const newSmallParentId = ref("");
 
 const statusLabels: Record<ItemStatus, string> = {
   IN_USE: "使用中",
@@ -56,14 +61,19 @@ async function loadDashboard(): Promise<void> {
     if (ownerId.value.trim() !== "") params.set("ownerId", ownerId.value.trim());
     if (locationId.value !== "") params.set("locationId", locationId.value);
     if (status.value !== "") params.set("status", status.value);
-    const [items, overview, storageLocations] = await Promise.all([
+    const [items, overview, storageLocations, categoryTree] = await Promise.all([
       apiRequest<PaginatedResponse<AdminItemSummary>>(`/admin/items?${params}`),
       apiRequest<InventoryStatistics>("/admin/statistics/overview"),
       apiRequest<LocationSummary[]>("/admin/locations"),
+      apiRequest<CategoryNode[]>("/categories/tree"),
     ]);
     result.value = items;
     statistics.value = overview;
     locations.value = storageLocations;
+    categories.value = categoryTree;
+    if (!categoryTree.some((category) => category.id === newSmallParentId.value)) {
+      newSmallParentId.value = categoryTree[0]?.id ?? "";
+    }
     await Promise.all([loadThumbnails(items.items), loadLocationPhotos(storageLocations)]);
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : "无法加载数据";
@@ -173,6 +183,53 @@ async function removeLocation(location: LocationSummary): Promise<void> {
   }
 }
 
+async function createBigCategory(): Promise<void> {
+  if (newBigCategory.value.trim() === "") return;
+  categorySaving.value = true;
+  error.value = "";
+  try {
+    await apiRequest("/categories", {
+      method: "POST",
+      body: JSON.stringify({ name: newBigCategory.value.trim() }),
+    });
+    newBigCategory.value = "";
+    await loadDashboard();
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : "创建大类目失败";
+  } finally {
+    categorySaving.value = false;
+  }
+}
+
+async function createSmallCategory(): Promise<void> {
+  if (newSmallCategory.value.trim() === "" || newSmallParentId.value === "") return;
+  categorySaving.value = true;
+  error.value = "";
+  try {
+    await apiRequest("/categories", {
+      method: "POST",
+      body: JSON.stringify({ name: newSmallCategory.value.trim(), parentId: newSmallParentId.value }),
+    });
+    newSmallCategory.value = "";
+    await loadDashboard();
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : "创建小类目失败";
+  } finally {
+    categorySaving.value = false;
+  }
+}
+
+async function removeCategory(id: string, name: string): Promise<void> {
+  if (!window.confirm(`确认删除类目“${name}”吗？已登记物品仍保留类目名称快照。`)) return;
+  error.value = "";
+  try {
+    await apiRequest(`/categories/${id}`, { method: "DELETE" });
+    await loadDashboard();
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : "删除类目失败";
+  }
+}
+
 async function showLocationItems(id: string): Promise<void> {
   locationId.value = id;
   await loadDashboard();
@@ -216,7 +273,7 @@ onBeforeUnmount(() => {
   <div class="admin-shell">
     <aside class="sidebar">
       <div class="brand"><span>序</span><div><strong>物序</strong><small>ADMIN CONSOLE</small></div></div>
-      <nav><a class="active" href="#overview"><span>◫</span>数据概览</a><a href="#locations"><span>⌂</span>位置管理</a><a href="#items"><span>≡</span>物品查询</a></nav>
+      <nav><a class="active" href="#overview"><span>◫</span>数据概览</a><a href="#categories"><span>◇</span>类目管理</a><a href="#locations"><span>⌂</span>位置管理</a><a href="#items"><span>≡</span>物品查询</a></nav>
       <div class="sidebar-foot"><small>当前管理员</small><strong>{{ auth.user?.displayName }}</strong><button type="button" @click="signOut">退出登录</button></div>
     </aside>
     <main class="workspace">
@@ -232,6 +289,19 @@ onBeforeUnmount(() => {
       <section class="insight-grid">
         <article class="data-card status-overview"><div class="card-heading"><p class="eyebrow">STATUS</p><h2>状态分布</h2></div><div class="bar-list"><div v-for="entry in statusEntries" :key="entry.key"><span>{{ entry.label }}<strong>{{ statistics.statusCounts[entry.key] }}</strong></span><div><i :style="{ width: `${statusPercent(statistics.statusCounts[entry.key])}%` }"></i></div></div></div></article>
         <article class="data-card"><div class="card-heading"><p class="eyebrow">CATEGORY</p><h2>类目排行</h2></div><div v-if="statistics.categoryCounts.length" class="category-ranking"><div v-for="category in statistics.categoryCounts" :key="category.categoryId"><span>{{ category.categoryName }}</span><strong>{{ category.count }}</strong></div></div><p v-else class="empty-insight">暂无类目数据</p></article>
+      </section>
+
+      <section id="categories" class="data-card category-management">
+        <div class="card-heading"><div><p class="eyebrow">CATEGORY MANAGEMENT</p><h2>类目管理</h2></div><span>用户端只能选择这里维护的类目</span></div>
+        <div class="category-admin-layout">
+          <div class="category-forms">
+            <form @submit.prevent="createBigCategory"><label>大类目名称<input v-model="newBigCategory" maxlength="60" required placeholder="例如：玩具" /></label><button type="submit" :disabled="categorySaving">添加大类目</button></form>
+            <form @submit.prevent="createSmallCategory"><label>所属大类目<select v-model="newSmallParentId" required><option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option></select></label><label>小类目名称<input v-model="newSmallCategory" maxlength="60" required placeholder="例如：乐高" /></label><button type="submit" :disabled="categorySaving || newSmallParentId === ''">添加小类目</button></form>
+          </div>
+          <div class="admin-category-tree">
+            <article v-for="category in categories" :key="category.id"><div><strong>{{ category.name }}</strong><button type="button" @click="removeCategory(category.id, category.name)">删除大类目</button></div><p v-if="category.children.length === 0">暂无小类目</p><div v-else><span v-for="child in category.children" :key="child.id">{{ child.name }}<button type="button" :aria-label="`删除${child.name}`" @click="removeCategory(child.id, child.name)">×</button></span></div></article>
+          </div>
+        </div>
       </section>
 
       <section id="locations" class="data-card location-management">

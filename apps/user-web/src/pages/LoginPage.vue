@@ -16,7 +16,7 @@ async function submit(): Promise<void> {
   loading.value = true;
   try {
     await auth.signIn(email.value, password.value);
-    await router.push({ name: "items" });
+    await router.push({ name: "home" });
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : "登录失败";
   } finally {

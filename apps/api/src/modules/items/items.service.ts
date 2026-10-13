@@ -27,7 +27,7 @@ export class ItemsService {
   ) {}
 
   async create(ownerId: string, input: CreateItemDto): Promise<ItemDetail> {
-    const category = await this.categoriesService.resolveSelection(ownerId, input.bigCategoryId, input.smallCategoryId);
+    const category = await this.categoriesService.resolveSelection(input.bigCategoryId, input.smallCategoryId);
     const location = await this.locationsService.resolveSelection(input.locationId);
     const imageIds = input.imageIds ?? [];
     await this.mediaService.validateOwnership(ownerId, imageIds);
@@ -75,7 +75,7 @@ export class ItemsService {
       const smallCategoryId = input.bigCategoryId !== undefined && input.smallCategoryId === undefined
         ? null
         : input.smallCategoryId ?? item.smallCategoryId;
-      const category = await this.categoriesService.resolveSelection(ownerId, bigCategoryId, smallCategoryId);
+      const category = await this.categoriesService.resolveSelection(bigCategoryId, smallCategoryId);
       item.bigCategoryId = category.bigCategoryId;
       item.bigCategoryName = category.bigCategoryName;
       item.smallCategoryId = category.smallCategoryId;

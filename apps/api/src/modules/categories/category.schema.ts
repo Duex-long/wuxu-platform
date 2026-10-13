@@ -9,6 +9,9 @@ export class Category {
   @Prop({ required: true, index: true })
   ownerId: string;
 
+  @Prop({ required: true, default: false, index: true })
+  managedByAdmin: boolean;
+
   @Prop({ required: true, enum: ["BIG", "SMALL"], index: true })
   level: CategoryLevel;
 
@@ -32,5 +35,5 @@ export class Category {
 }
 
 export const CategorySchema = SchemaFactory.createForClass(Category);
-CategorySchema.index({ ownerId: 1, level: 1, parentId: 1, normalizedName: 1 });
-CategorySchema.index({ ownerId: 1, level: 1, sortOrder: 1, createdAt: 1 });
+CategorySchema.index({ managedByAdmin: 1, level: 1, parentId: 1, normalizedName: 1 });
+CategorySchema.index({ managedByAdmin: 1, level: 1, sortOrder: 1, createdAt: 1 });
