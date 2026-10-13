@@ -3,6 +3,7 @@ import { ITEM_STATUSES, type ItemStatus } from "@wuxu/shared-types";
 import { Transform, Type } from "class-transformer";
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsIn,
   IsInt,
@@ -58,6 +59,19 @@ export class CreateItemDto {
   @IsIn(ITEM_STATUSES)
   status: ItemStatus;
 
+  @ApiPropertyOptional({ default: false, description: "是否为会随使用逐步耗尽的消耗品" })
+  @IsOptional()
+  @IsBoolean()
+  isConsumable?: boolean;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 36500, description: "使用中消耗品预计使用完毕的天数" })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(36500)
+  expectedConsumptionDays?: number;
+
   @ApiPropertyOptional({ type: [String], default: [] })
   @IsOptional()
   @IsArray()
@@ -77,6 +91,14 @@ export class UpdateItemStatusDto {
   @ApiProperty({ enum: ITEM_STATUSES })
   @IsIn(ITEM_STATUSES)
   status: ItemStatus;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 36500, description: "消耗品进入使用中状态时的预计使用天数" })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(36500)
+  expectedConsumptionDays?: number;
 
   @ApiPropertyOptional({ nullable: true })
   @IsOptional()
@@ -124,4 +146,16 @@ export class ListItemsQueryDto {
   @IsOptional()
   @IsMongoId()
   locationId?: string;
+
+  @ApiPropertyOptional({ type: Boolean })
+  @Transform(({ value }) => value === "true" ? true : value === "false" ? false : value)
+  @IsOptional()
+  @IsBoolean()
+  consumable?: boolean;
+
+  @ApiPropertyOptional({ type: Boolean, description: "只返回预计使用周期已经到达的消耗品" })
+  @Transform(({ value }) => value === "true" ? true : value === "false" ? false : value)
+  @IsOptional()
+  @IsBoolean()
+  dueForCheck?: boolean;
 }

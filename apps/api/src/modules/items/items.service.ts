@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { ITEM_STATUSES, type InventoryStatistics, type ItemStatus, type ItemSummary, type PaginatedResponse } from "@wuxu/shared-types";
 import { FilterQuery, Model, Types } from "mongoose";
@@ -9,6 +9,8 @@ import { MediaService } from "../media/media.service";
 import { CreateItemDto, ListItemsQueryDto, UpdateItemDto } from "./item.dto";
 import { Item, type ItemDocument } from "./item.schema";
 import { ItemStatusHistory } from "./item-status-history.schema";
+
+const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 
 export interface ItemDetail extends ItemSummary {
   remark?: string;
@@ -30,6 +32,12 @@ export class ItemsService {
     const category = await this.categoriesService.resolveSelection(input.bigCategoryId, input.smallCategoryId);
     const location = await this.locationsService.resolveSelection(input.locationId);
     const imageIds = input.imageIds ?? [];
+    const isConsumable = input.isConsumable ?? false;
+    const expectedConsumptionDays = this.resolveExpectedConsumptionDays(
+      isConsumable,
+      input.status,
+      input.expectedConsumptionDays ?? null,
+    );
     await this.mediaService.validateOwnership(ownerId, imageIds);
     const item = await this.itemModel.create({
       ownerId,
@@ -40,6 +48,9 @@ export class ItemsService {
       unit: input.unit.trim(),
       expiresOn: input.expiresOn ? new Date(input.expiresOn) : null,
       status: input.status,
+      isConsumable,
+      expectedConsumptionDays,
+      consumptionStartedAt: isConsumable && input.status === "IN_USE" ? new Date() : null,
       imageIds,
       remark: input.remark?.trim() || null,
     });
@@ -100,9 +111,27 @@ export class ItemsService {
     if (input.expiresOn !== undefined) item.expiresOn = input.expiresOn ? new Date(input.expiresOn) : null;
     if (input.imageIds !== undefined) item.imageIds = input.imageIds;
     if (input.remark !== undefined) item.remark = input.remark?.trim() || null;
-    if (input.status !== undefined && input.status !== item.status) {
-      await this.recordStatusChange(item, input.status, ownerId, null);
-      item.status = input.status;
+
+    const nextStatus = input.status ?? item.status;
+    const nextIsConsumable = input.isConsumable ?? Boolean(item.isConsumable);
+    const wasActivelyConsumed = Boolean(item.isConsumable)
+      && item.status === "IN_USE"
+      && item.consumptionStartedAt instanceof Date;
+    const expectedConsumptionDays = this.resolveExpectedConsumptionDays(
+      nextIsConsumable,
+      nextStatus,
+      input.expectedConsumptionDays ?? item.expectedConsumptionDays ?? null,
+    );
+    if (nextStatus !== item.status) {
+      await this.recordStatusChange(item, nextStatus, ownerId, null);
+    }
+    item.status = nextStatus;
+    item.isConsumable = nextIsConsumable;
+    item.expectedConsumptionDays = expectedConsumptionDays;
+    if (nextIsConsumable && nextStatus === "IN_USE") {
+      if (!wasActivelyConsumed) item.consumptionStartedAt = new Date();
+    } else {
+      item.consumptionStartedAt = null;
     }
 
     await item.save();
@@ -125,13 +154,36 @@ export class ItemsService {
     id: string,
     status: ItemStatus,
     reason: string | null,
+    requestedExpectedConsumptionDays: number | null,
   ): Promise<ItemDetail> {
     const item = await this.findDocument({ _id: this.toObjectId(id), ownerId, deletedAt: null });
+    const expectedConsumptionDays = this.resolveExpectedConsumptionDays(
+      Boolean(item.isConsumable),
+      status,
+      requestedExpectedConsumptionDays ?? item.expectedConsumptionDays ?? null,
+    );
+    const wasActivelyConsumed = Boolean(item.isConsumable)
+      && item.status === "IN_USE"
+      && item.consumptionStartedAt instanceof Date;
+    let shouldSave = false;
     if (item.status !== status) {
       await this.recordStatusChange(item, status, ownerId, reason);
       item.status = status;
-      await item.save();
+      shouldSave = true;
     }
+    if (item.isConsumable && status === "IN_USE") {
+      if (!wasActivelyConsumed) {
+        item.consumptionStartedAt = new Date();
+        shouldSave = true;
+      }
+      if (item.expectedConsumptionDays !== expectedConsumptionDays) shouldSave = true;
+      item.expectedConsumptionDays = expectedConsumptionDays;
+    } else if (item.expectedConsumptionDays != null || item.consumptionStartedAt != null) {
+      item.expectedConsumptionDays = null;
+      item.consumptionStartedAt = null;
+      shouldSave = true;
+    }
+    if (shouldSave) await item.save();
     return this.toDetail(item);
   }
 
@@ -150,6 +202,22 @@ export class ItemsService {
     if (query.status) filter.status = query.status;
     if (query.bigCategoryId) filter.bigCategoryId = query.bigCategoryId;
     if (query.locationId) filter.locationId = query.locationId;
+    if (query.consumable === true) filter.isConsumable = true;
+    if (query.consumable === false) {
+      filter.$or = [{ isConsumable: false }, { isConsumable: { $exists: false } }];
+    }
+    if (query.dueForCheck === true) {
+      filter.isConsumable = true;
+      filter.status = "IN_USE";
+      filter.expectedConsumptionDays = { $gte: 1 };
+      filter.consumptionStartedAt = { $ne: null };
+      filter.$expr = {
+        $lte: [
+          { $add: ["$consumptionStartedAt", { $multiply: ["$expectedConsumptionDays", DAY_IN_MILLISECONDS] }] },
+          new Date(),
+        ],
+      };
+    }
 
     const [documents, total] = await Promise.all([
       this.itemModel
@@ -200,6 +268,7 @@ export class ItemsService {
       quantity: item.quantity,
       unit: item.unit,
       status: item.status,
+      isConsumable: Boolean(item.isConsumable),
       bigCategoryId: item.bigCategoryId,
       bigCategoryName: item.bigCategoryName || item.bigCategoryId,
       imageIds: item.imageIds,
@@ -211,6 +280,34 @@ export class ItemsService {
     if (item.locationId) summary.locationId = item.locationId;
     if (item.location) summary.location = item.location;
     if (item.expiresOn) summary.expiresOn = item.expiresOn.toISOString().slice(0, 10);
+    if (item.isConsumable && typeof item.expectedConsumptionDays === "number") {
+      summary.expectedConsumptionDays = item.expectedConsumptionDays;
+    }
+    if (item.isConsumable && item.consumptionStartedAt instanceof Date) {
+      summary.consumptionStartedAt = item.consumptionStartedAt.toISOString();
+    }
+    if (
+      item.isConsumable
+      && item.status === "IN_USE"
+      && typeof item.expectedConsumptionDays === "number"
+      && item.consumptionStartedAt instanceof Date
+    ) {
+      const elapsedDays = Math.max(
+        0,
+        Math.floor((Date.now() - item.consumptionStartedAt.getTime()) / DAY_IN_MILLISECONDS),
+      );
+      const expectedFinishedAt = new Date(
+        item.consumptionStartedAt.getTime() + item.expectedConsumptionDays * DAY_IN_MILLISECONDS,
+      );
+      summary.consumptionProgress = {
+        elapsedDays,
+        expectedDays: item.expectedConsumptionDays,
+        percent: Math.min(100, Math.round((elapsedDays / item.expectedConsumptionDays) * 100)),
+        estimatedDailyConsumption: item.quantity / item.expectedConsumptionDays,
+        expectedFinishedOn: expectedFinishedAt.toISOString().slice(0, 10),
+        dueForCheck: elapsedDays >= item.expectedConsumptionDays,
+      };
+    }
     return summary;
   }
 
@@ -237,7 +334,7 @@ export class ItemsService {
         totals: Array<{ totalRecords: number; totalQuantity: number }>;
         statuses: Array<{ _id: ItemStatus; count: number }>;
         categories: Array<{ _id: { categoryId: string; categoryName: string }; count: number }>;
-        expiration: Array<{ expiringSoon: number; expired: number }>;
+        expiration: Array<{ expiringSoon: number; expired: number; consumablesDueForCheck: number }>;
       }>([
         { $match: { ...baseFilter, deletedAt: null } },
         {
@@ -292,6 +389,33 @@ export class ItemsService {
                       ],
                     },
                   },
+                  consumablesDueForCheck: {
+                    $sum: {
+                      $cond: [
+                        {
+                          $and: [
+                            { $eq: ["$isConsumable", true] },
+                            { $eq: ["$status", "IN_USE"] },
+                            { $gte: ["$expectedConsumptionDays", 1] },
+                            { $ne: ["$consumptionStartedAt", null] },
+                            {
+                              $lte: [
+                                {
+                                  $add: [
+                                    "$consumptionStartedAt",
+                                    { $multiply: ["$expectedConsumptionDays", DAY_IN_MILLISECONDS] },
+                                  ],
+                                },
+                                now,
+                              ],
+                            },
+                          ],
+                        },
+                        1,
+                        0,
+                      ],
+                    },
+                  },
                 },
               },
             ],
@@ -316,7 +440,25 @@ export class ItemsService {
       })),
       expiringSoon: expiration?.expiringSoon ?? 0,
       expired: expiration?.expired ?? 0,
+      consumablesDueForCheck: expiration?.consumablesDueForCheck ?? 0,
       userCount: ownerIds.length,
     };
+  }
+
+  private resolveExpectedConsumptionDays(
+    isConsumable: boolean,
+    status: ItemStatus,
+    expectedConsumptionDays: number | null,
+  ): number | null {
+    if (!isConsumable || status !== "IN_USE") return null;
+    if (
+      expectedConsumptionDays === null
+      || !Number.isInteger(expectedConsumptionDays)
+      || expectedConsumptionDays < 1
+      || expectedConsumptionDays > 36500
+    ) {
+      throw new BadRequestException("使用中的消耗品必须填写 1 到 36500 天的预计使用天数");
+    }
+    return expectedConsumptionDays;
   }
 }

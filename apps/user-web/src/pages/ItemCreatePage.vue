@@ -27,6 +27,8 @@ const form = reactive({
   locationId: "",
   expiresOn: "",
   status: "UNUSED" as ItemStatus,
+  isConsumable: false,
+  expectedConsumptionDays: 30,
   remark: "",
 });
 
@@ -34,6 +36,7 @@ const selectedBigCategory = computed(() => categories.value.find((category) => c
 const smallCategoryOptions = computed(() => selectedBigCategory.value?.children ?? []);
 const hasUploadingImages = computed(() => pendingImages.value.some((image) => image.status === "uploading" || image.status === "pending"));
 const canSubmit = computed(() => categories.value.length > 0 && !saving.value && !hasUploadingImages.value);
+const showsConsumptionPlan = computed(() => form.isConsumable && form.status === "IN_USE");
 
 async function loadOptions(): Promise<void> {
   loading.value = true;
@@ -61,8 +64,10 @@ async function createItem(): Promise<void> {
       quantity: form.quantity,
       unit: form.unit,
       status: form.status,
+      isConsumable: form.isConsumable,
       imageIds: pendingImages.value.flatMap((image) => image.status === "uploaded" && image.imageId ? [image.imageId] : []),
     };
+    if (showsConsumptionPlan.value) body.expectedConsumptionDays = form.expectedConsumptionDays;
     if (form.smallCategoryId !== "") body.smallCategoryId = form.smallCategoryId;
     if (form.locationId !== "") body.locationId = form.locationId;
     if (form.expiresOn !== "") body.expiresOn = form.expiresOn;
@@ -141,6 +146,8 @@ onBeforeUnmount(clearPendingImages);
           <label>单位<input v-model.trim="form.unit" required maxlength="20" /></label>
           <label>存放位置<select v-model="form.locationId"><option value="">暂不设置</option><option v-for="location in locations" :key="location.id" :value="location.id">{{ location.name }}</option></select></label>
           <label>初始状态<select v-model="form.status"><option v-for="itemStatus in ITEM_STATUSES" :key="itemStatus" :value="itemStatus">{{ statusLabels[itemStatus] }}</option></select></label>
+          <label class="consumable-toggle wide"><input v-model="form.isConsumable" type="checkbox" /><span><strong>这是消耗品</strong><small>例如食品、药品、清洁用品；开始使用后按预计天数跟踪进度。</small></span></label>
+          <label v-if="showsConsumptionPlan" class="wide">预计使用天数<input v-model.number="form.expectedConsumptionDays" type="number" min="1" max="36500" step="1" required /><small>从登记为“使用中”当天开始计算，到期只提醒检查，不会自动改为已消耗。</small></label>
           <label class="wide">到期日期<input v-model="form.expiresOn" type="date" /></label>
           <label class="wide image-picker">物品图片<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple @change="handleImageSelection" /><small>最多 8 张，单张不超过 10MB；按选择顺序保存。</small></label>
           <div v-if="pendingImages.length" class="upload-grid wide">

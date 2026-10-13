@@ -15,6 +15,7 @@ const emptyStats = (): InventoryStatistics => ({
   categoryCounts: [],
   expiringSoon: 0,
   expired: 0,
+  consumablesDueForCheck: 0,
   userCount: 0,
 });
 
@@ -25,6 +26,7 @@ const keyword = ref("");
 const ownerId = ref("");
 const locationId = ref(typeof route.query.locationId === "string" ? route.query.locationId : "");
 const status = ref<ItemStatus | "">("");
+const consumable = ref<"" | "true" | "false" | "due">("");
 const loading = ref(false);
 const error = ref("");
 const thumbnailUrls = ref<Record<string, string>>({});
@@ -50,6 +52,8 @@ async function loadDashboard(): Promise<void> {
     if (ownerId.value.trim() !== "") params.set("ownerId", ownerId.value.trim());
     if (locationId.value !== "") params.set("locationId", locationId.value);
     if (status.value !== "") params.set("status", status.value);
+    if (consumable.value === "true" || consumable.value === "false") params.set("consumable", consumable.value);
+    if (consumable.value === "due") params.set("dueForCheck", "true");
     const [items, overview, storageLocations] = await Promise.all([
       apiRequest<PaginatedResponse<AdminItemSummary>>(`/admin/items?${params}`),
       apiRequest<InventoryStatistics>("/admin/statistics/overview"),
@@ -84,6 +88,11 @@ function statusPercent(value: number): number {
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
+function formatDailyConsumption(value: number): string {
+  if (value > 0 && value < 0.001) return "<0.001";
+  return new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 3 }).format(value);
 }
 
 function releaseThumbnailUrls(): void {
@@ -123,6 +132,8 @@ onBeforeUnmount(releaseThumbnailUrls);
       <article class="data-card"><div class="card-heading"><p class="eyebrow">CATEGORY</p><h2>类目排行</h2></div><div v-if="statistics.categoryCounts.length" class="category-ranking"><div v-for="category in statistics.categoryCounts" :key="category.categoryId"><span>{{ category.categoryName }}</span><strong>{{ category.count }}</strong></div></div><p v-else class="empty-insight">暂无类目数据</p></article>
     </section>
 
+    <div v-if="statistics.consumablesDueForCheck > 0" class="admin-consumption-alert"><strong>{{ statistics.consumablesDueForCheck }} 件消耗品达到预计使用天数</strong><span>请通知相关用户检查实际剩余量；系统不会自动修改物品状态。</span></div>
+
     <section id="items" class="data-card">
       <div class="card-heading"><div><p class="eyebrow">INVENTORY QUERY</p><h2>物品查询</h2></div></div>
       <form class="filters filters-wide" @submit.prevent="loadDashboard">
@@ -130,15 +141,16 @@ onBeforeUnmount(releaseThumbnailUrls);
         <label>用户 ID<input v-model="ownerId" placeholder="精确筛选" /></label>
         <label>存放位置<select v-model="locationId"><option value="">全部位置</option><option v-for="location in locations" :key="location.id" :value="location.id">{{ location.name }}</option></select></label>
         <label>状态<select v-model="status"><option value="">全部</option><option value="IN_USE">使用中</option><option value="UNUSED">未使用</option><option value="DAMAGED">已损坏</option><option value="CONSUMED">已消耗</option></select></label>
+        <label>物品类型<select v-model="consumable"><option value="">全部类型</option><option value="true">消耗品</option><option value="false">非消耗品</option><option value="due">待检查消耗品</option></select></label>
         <button type="submit">应用筛选</button>
       </form>
       <p v-if="error" class="error">{{ error }}</p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>物品</th><th>用户</th><th>类目</th><th>数量</th><th>位置</th><th>保质期</th><th>状态</th><th>登记时间</th></tr></thead>
+          <thead><tr><th>物品</th><th>用户</th><th>类目</th><th>数量</th><th>位置</th><th>保质期</th><th>类型 / 使用进度</th><th>状态</th><th>登记时间</th></tr></thead>
           <tbody>
-            <tr v-if="loading"><td colspan="8" class="empty">正在读取数据…</td></tr>
-            <tr v-else-if="result.items.length === 0"><td colspan="8" class="empty">暂无匹配物品</td></tr>
+            <tr v-if="loading"><td colspan="9" class="empty">正在读取数据…</td></tr>
+            <tr v-else-if="result.items.length === 0"><td colspan="9" class="empty">暂无匹配物品</td></tr>
             <tr v-for="item in result.items" v-else :key="item.id">
               <td><div class="item-cell"><img v-if="thumbnailUrls[item.id]" :src="thumbnailUrls[item.id]" :alt="item.name" /><span v-else>{{ item.name.slice(0, 1) }}</span><div><strong>{{ item.name }}</strong><small>{{ item.id }}</small></div></div></td>
               <td>{{ item.owner?.displayName ?? "已删除用户" }}<small>{{ item.owner?.email ?? item.ownerId }}</small></td>
@@ -146,6 +158,7 @@ onBeforeUnmount(releaseThumbnailUrls);
               <td>{{ item.quantity }} {{ item.unit }}</td>
               <td>{{ item.location ?? "—" }}</td>
               <td>{{ item.expiresOn ?? "—" }}</td>
+              <td><div v-if="item.consumptionProgress" :class="['admin-progress', { 'is-due': item.consumptionProgress.dueForCheck }]"><strong>{{ item.consumptionProgress.elapsedDays }} / {{ item.consumptionProgress.expectedDays }} 天</strong><small>日均 {{ formatDailyConsumption(item.consumptionProgress.estimatedDailyConsumption) }} {{ item.unit }}/天</small><em>{{ item.consumptionProgress.dueForCheck ? '请检查' : `${item.consumptionProgress.percent}%` }}</em></div><span v-else>{{ item.isConsumable ? "消耗品 · 尚未开始" : "非消耗品" }}</span></td>
               <td><span :class="['status', `status-${item.status.toLowerCase()}`]">{{ statusLabels[item.status] }}</span></td>
               <td>{{ formatDate(item.createdAt) }}</td>
             </tr>

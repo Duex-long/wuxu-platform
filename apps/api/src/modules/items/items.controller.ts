@@ -48,7 +48,13 @@ export class ItemsController {
     @Param("id") id: string,
     @Body() input: UpdateItemStatusDto,
   ): Promise<ItemDetail> {
-    return this.itemsService.updateStatus(user.id, id, input.status, input.reason ?? null);
+    return this.itemsService.updateStatus(
+      user.id,
+      id,
+      input.status,
+      input.reason ?? null,
+      input.expectedConsumptionDays ?? null,
+    );
   }
 
   @Delete(":id")

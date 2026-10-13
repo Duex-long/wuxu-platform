@@ -14,6 +14,7 @@ const emptyStats = (): InventoryStatistics => ({
   categoryCounts: [],
   expiringSoon: 0,
   expired: 0,
+  consumablesDueForCheck: 0,
 });
 
 const router = useRouter();
@@ -79,13 +80,16 @@ onBeforeUnmount(releaseLocationPhotoUrls);
     </section>
 
     <p v-if="error" class="error-message">{{ error }}</p>
+    <RouterLink v-if="statistics.consumablesDueForCheck > 0" class="consumption-alert" :to="{ name: 'item-search', query: { dueForCheck: '1' } }">
+      <span>!</span><div><strong>{{ statistics.consumablesDueForCheck }} 件消耗品已达到预计使用天数</strong><small>请检查实际剩余量，再决定调整周期或改为已消耗。</small></div><b>去检查 →</b>
+    </RouterLink>
 
     <section class="entry-grid" aria-label="物品操作入口">
       <RouterLink class="entry-card entry-search" :to="{ name: 'item-search' }">
         <span>⌕</span><div><p class="eyebrow">FIND</p><h2>查找物品</h2><p>按名称、类目、位置或状态筛选，并更新物品状态。</p></div><strong>进入查找 →</strong>
       </RouterLink>
       <RouterLink class="entry-card entry-create" :to="{ name: 'item-create' }">
-        <span>＋</span><div><p class="eyebrow">ADD</p><h2>新增物品</h2><p>登记数量、存放位置、保质期和图片。</p></div><strong>开始登记 →</strong>
+        <span>＋</span><div><p class="eyebrow">ADD</p><h2>新增物品</h2><p>登记数量、存放位置、保质期、消耗周期和图片。</p></div><strong>开始登记 →</strong>
       </RouterLink>
     </section>
 

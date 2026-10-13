@@ -28,6 +28,15 @@ export interface LoginResponse {
   user: AuthUser;
 }
 
+export interface ConsumptionProgress {
+  elapsedDays: number;
+  expectedDays: number;
+  percent: number;
+  estimatedDailyConsumption: number;
+  expectedFinishedOn: string;
+  dueForCheck: boolean;
+}
+
 export interface ItemSummary {
   id: string;
   ownerId: string;
@@ -35,6 +44,10 @@ export interface ItemSummary {
   quantity: number;
   unit?: string;
   status: ItemStatus;
+  isConsumable: boolean;
+  expectedConsumptionDays?: number;
+  consumptionStartedAt?: string;
+  consumptionProgress?: ConsumptionProgress;
   bigCategoryId: string;
   bigCategoryName: string;
   smallCategoryId?: string;
@@ -88,6 +101,7 @@ export interface InventoryStatistics {
   categoryCounts: CategoryStatistic[];
   expiringSoon: number;
   expired: number;
+  consumablesDueForCheck: number;
   userCount?: number;
 }
 

@@ -42,6 +42,15 @@ export class Item {
   @Prop({ required: true, enum: ["IN_USE", "UNUSED", "DAMAGED", "CONSUMED"], index: true })
   status: ItemStatus;
 
+  @Prop({ type: Boolean, default: false, index: true })
+  isConsumable: boolean;
+
+  @Prop({ type: Number, default: null, min: 1, max: 36500 })
+  expectedConsumptionDays: number | null;
+
+  @Prop({ type: Date, default: null, index: true })
+  consumptionStartedAt: Date | null;
+
   @Prop({ type: [String], default: [] })
   imageIds: string[];
 
@@ -59,3 +68,4 @@ export class Item {
 export const ItemSchema = SchemaFactory.createForClass(Item);
 ItemSchema.index({ ownerId: 1, createdAt: -1 });
 ItemSchema.index({ ownerId: 1, status: 1, createdAt: -1 });
+ItemSchema.index({ ownerId: 1, isConsumable: 1, status: 1, consumptionStartedAt: 1 });
