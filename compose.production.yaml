@@ -9,7 +9,9 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     volumes:
-      - mysql_production_data:/var/lib/mysql
+      - type: bind
+        source: ${MYSQL_DATA_PATH:-./data/mysql}
+        target: /var/lib/mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
       interval: 5s
@@ -21,7 +23,12 @@ services:
   mongodb:
     image: mongo:8.0.14
     volumes:
-      - mongo_production_data:/data/db
+      - type: bind
+        source: ${MONGODB_DATA_PATH:-./data/mongodb}
+        target: /data/db
+      - type: bind
+        source: ${MONGODB_CONFIG_PATH:-./data/mongodb-config}
+        target: /data/configdb
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 5s
@@ -101,6 +108,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  mysql_production_data:
-  mongo_production_data:
   object_production_data:

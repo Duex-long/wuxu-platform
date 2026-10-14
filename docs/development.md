@@ -18,8 +18,11 @@ SeaweedFS 仅作为本地 S3 兼容对象存储。业务代码只依赖 S3 协�
 
 ```bash
 cp .env.example .env
+mkdir -p data/mysql data/mongodb data/mongodb-config
 docker compose up --build
 ```
+
+MySQL 与 MongoDB 默认直接写入仓库旁的 `data/` 目录，便于查看、整体备份和迁移；该目录已被 Git 忽略。可以在 `.env` 中通过 `MYSQL_DATA_PATH`、`MONGODB_DATA_PATH` 和 `MONGODB_CONFIG_PATH` 改为其他本地绝对路径。
 
 启动完成后：
 
@@ -62,10 +65,10 @@ docker compose watch
 
 `verification` 阶段会在 Node 22.20.0 与 pnpm 10.18.3 环境中编译共享包、API 和两个 Web 应用，可用于本地提交前或 CI 校验；不要求宿主机安装兼容版本的 Node.js。
 
-需要同时清除本地数据库和对象文件时才执行：
+`docker compose down` 不会删除宿主机的数据库目录。以下命令只应在明确要删除对象存储卷时执行：
 
 ```bash
 docker compose down -v
 ```
 
-该命令会删除 Compose 创建的全部开发数据卷。
+该命令会删除 Compose 创建的对象存储卷，但不会删除 `data/` 下的 MySQL 与 MongoDB 文件；数据库目录需要单独、明确地备份或清理。

@@ -39,7 +39,7 @@ cp .env.production.example .env.production
 ```
 
 编辑 `.env.production`，至少替换 MySQL、S3、JWT 和初始账号密码。公开镜像无需登录；如果后续将
-GHCR Package 改为私有，需要先在部署机执行 `docker login ghcr.io`。然后执行：
+GHCR Package 改为私有，需要先在部署机执行 `docker login ghcr.io`。MySQL 和 MongoDB 默认写入部署目录下的 `data/`，也可以通过 `MYSQL_DATA_PATH`、`MONGODB_DATA_PATH` 和 `MONGODB_CONFIG_PATH` 指向其他本地磁盘。然后执行：
 
 ```bash
 docker compose --env-file .env.production -f compose.production.yaml config
@@ -67,7 +67,7 @@ docker compose --env-file .env.production -f compose.production.yaml up -d
 docker compose --env-file .env.production -f compose.production.yaml down
 ```
 
-该命令不会删除三个持久化 volume。不要使用 `down -v`，除非明确要清空全部物品、用户和图片数据。
+该命令不会删除数据库宿主机目录或对象存储卷。不要使用 `down -v`，因为它会删除图片对象存储卷；MySQL 与 MongoDB 的 bind mount 目录需要单独管理和备份。
 
 ## 反向代理与 HTTPS
 

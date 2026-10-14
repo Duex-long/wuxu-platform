@@ -12,10 +12,10 @@
 2. 默认使用预构建镜像部署；只有用户明确要求从源码构建，或指定提交的镜像确实不存在时，才使用远程源码构建模式。
 3. 只使用主仓库 `https://github.com/Duex-long/wuxu-platform.git`。不要分别克隆 `wuxu-user-web`、`wuxu-admin-web` 和 `wuxu-api`。
 4. 默认部署 `main` 当前提交；镜像必须同时使用同一个 `sha-<7 位提交号>` 标签，禁止 Web 和 Server 使用不同版本。
-5. 已存在的 `.env.production`、Docker volume 和用户数据必须保留。不要覆盖未知配置，不要执行 `git reset --hard`，不要执行 `docker compose down -v`，不要删除部署目录。
+5. 已存在的 `.env.production`、数据库宿主机目录、Docker volume 和用户数据必须保留。不要覆盖未知配置，不要执行 `git reset --hard`，不要执行 `docker compose down -v`，不要删除部署目录或 `data/`。
 6. 不要在终端输出、聊天回复或日志摘要中展示 MySQL、S3、JWT 密钥和密码。部署完成后只向用户提供访问地址、初始账号邮箱，以及用户确实需要保存的初始登录密码。
-7. 如果发现已有未提交代码、同名但来源不同的 Git 仓库、端口冲突、Docker 不可用或不确定的数据卷归属，停止可能覆盖数据的步骤，说明具体冲突并询问用户。
-8. 命令失败时先检查状态和日志，修复明确原因后重试；不得通过清空数据卷规避错误。
+7. 如果发现已有未提交代码、同名但来源不同的 Git 仓库、端口冲突、Docker 不可用，或无法确认旧数据目录/数据卷的归属，停止可能覆盖数据的步骤，说明具体冲突并询问用户。
+8. 命令失败时先检查状态和日志，修复明确原因后重试；不得通过清空数据目录或数据卷规避错误。
 9. 完成标准是容器状态正常、API 就绪检查成功、用户端和管理后台可访问、两个初始账号能够登录。
 
 ## 可选部署参数
@@ -30,6 +30,9 @@
 | `PUBLIC_ORIGIN` | `http://localhost:8080` | 浏览器访问系统的完整 Origin；有域名时应填写真实 HTTPS 地址 |
 | `INITIAL_USER_EMAIL` | `user@wuxu.local` | 初始普通用户邮箱 |
 | `INITIAL_ADMIN_EMAIL` | `admin@wuxu.local` | 初始管理员邮箱 |
+| `MYSQL_DATA_PATH` | `<部署目录>/data/mysql` | MySQL 宿主机数据目录 |
+| `MONGODB_DATA_PATH` | `<部署目录>/data/mongodb` | MongoDB 宿主机数据目录 |
+| `MONGODB_CONFIG_PATH` | `<部署目录>/data/mongodb-config` | MongoDB 宿主机配置目录 |
 | `DEPLOY_MODE` | `image` | `image` 拉取镜像；`source` 从 Git 远程构建 |
 
 如果目标是远程服务器，但用户没有提供公网域名或访问地址，先用 `http://<服务器 IP>:8080` 向用户确认 `PUBLIC_ORIGIN`。仅在本机使用时可直接采用默认值。
@@ -164,6 +167,9 @@ MYSQL_DATABASE=wuxu
 MYSQL_USER=wuxu
 MYSQL_SYNCHRONIZE=true
 MONGODB_DATABASE=wuxu
+MYSQL_DATA_PATH=./data/mysql
+MONGODB_DATA_PATH=./data/mongodb
+MONGODB_CONFIG_PATH=./data/mongodb-config
 
 S3_REGION=us-east-1
 S3_BUCKET=wuxu-items
@@ -194,7 +200,19 @@ WUXU_RANDOM_VALUE="$(openssl rand -hex 32)"
 
 两个初始账号密码不能相同。不要把密码作为命令行参数传给可能长期运行的进程，不要提交 `.env.production`。完成后再次执行 `chmod 600 .env.production`。
 
-`SEED_INITIAL_USERS=true` 只用于没有历史数据卷的首次部署。已有部署应保留当前值，不得为了重置密码而重新启用种子账号。初始化逻辑不会覆盖已存在用户的密码。
+`SEED_INITIAL_USERS=true` 只用于没有历史数据库的首次部署。已有部署应保留当前值，不得为了重置密码而重新启用种子账号。初始化逻辑不会覆盖已存在用户的密码。
+
+数据库目录必须位于目标主机的本地磁盘。相对路径以 `compose.production.yaml` 所在目录为基准；如果用户指定备份盘，使用绝对路径。不得把数据库目录放到 Git、网盘同步目录或多台主机同时写入的共享目录。首次部署创建目录：
+
+默认路径使用：
+
+```bash
+mkdir -p data/mysql data/mongodb data/mongodb-config
+```
+
+如果 `.env.production` 配置的是绝对路径，改为创建三个实际绝对目录，不要原样使用默认命令。
+
+如果已有部署仍使用 Docker 命名卷，不得直接用空目录启动。执行 AI 必须先从仍连接旧卷的 MySQL 容器生成包含 `--single-transaction` 和 `--no-tablespaces` 的逻辑 SQL 备份，再停止 `api`、`mysql` 和 `mongodb`。MySQL 底层数据文件不得从 Linux volume 直接复制到 macOS 或 Windows bind mount，因为文件系统大小写规则可能不兼容；新目录初始化后用 SQL 恢复。MongoDB 在干净停机后可通过只读源挂载完整复制到空目录。所有来源先通过 `docker inspect` 确认，迁移后核对表/集合数量和 API 健康状态，并保留旧卷，不自动删除。MongoDB `/data/configdb` 的旧匿名卷也应检查并按需复制。
 
 项目当前还没有正式 TypeORM migration，因此个人单机部署必须保持 `MYSQL_SYNCHRONIZE=true` 才能自动建表。若要作为面向公网的正式生产系统使用，应先补齐数据库迁移，再评估关闭自动同步，不能直接在现有指南中改成 `false`。
 
@@ -318,7 +336,7 @@ docker compose --env-file .env.production -f compose.production.yaml pull
 docker compose --env-file .env.production -f compose.production.yaml up -d --pull always
 ```
 
-更新容器不会删除持久化数据卷。更新后必须重新运行全部健康检查。
+更新容器不会删除数据库宿主机目录或对象存储卷。更新后必须重新运行全部健康检查。
 
 ## 回滚
 
@@ -329,7 +347,7 @@ docker compose --env-file .env.production -f compose.production.yaml pull
 docker compose --env-file .env.production -f compose.production.yaml up -d --pull always
 ```
 
-不要为回滚删除数据卷。应用版本回滚不等于数据库结构回滚；如果未来引入不可逆数据库迁移，应先依据对应版本的迁移说明处理。
+不要为回滚删除数据库目录或数据卷。应用版本回滚不等于数据库结构回滚；如果未来引入不可逆数据库迁移，应先依据对应版本的迁移说明处理。
 
 ## 故障诊断
 
@@ -344,25 +362,27 @@ docker compose --env-file .env.production -f compose.production.yaml logs --tail
 
 常见情况：
 
-- API 一直不健康：检查数据库或对象存储是否健康、配置是否仍有占位符、旧数据卷密码是否与当前配置一致。
-- 登录失败：初始化账号只会创建不存在的账号，不会覆盖旧账号密码。已有数据卷应使用原密码。
+- API 一直不健康：检查数据库或对象存储是否健康、数据库目录权限、配置是否仍有占位符，以及旧数据中的密码是否与当前配置一致。
+- 登录失败：初始化账号只会创建不存在的账号，不会覆盖旧账号密码。已有数据库应使用原密码。
 - 页面可以打开但上传图片失败：检查 `object-storage` 与 `api` 日志；图片上限为 10MB。
 - `/admin/` 返回 404：确认访问路径包含末尾斜杠，并确认运行的是 `gateway` Web 镜像。
 - GHCR 拉取失败：先确认镜像标签存在以及 Package 是否公开；私有 Package 需要用户提供凭据。
 
 ## 数据安全边界
 
-数据保存在以下 Docker volume：
+数据默认保存在：
 
-- `mysql_production_data`：账号和身份。
-- `mongo_production_data`：类目、位置、物品、状态历史和图片元数据。
-- `object_production_data`：图片文件。
+- `MYSQL_DATA_PATH`（默认 `./data/mysql`）：账号和身份。
+- `MONGODB_DATA_PATH`（默认 `./data/mongodb`）：类目、位置、物品、状态历史和图片元数据。
+- `MONGODB_CONFIG_PATH`（默认 `./data/mongodb-config`）：MongoDB 本地配置数据。
+- `object_production_data` Docker volume：图片文件。
 
 以下命令禁止在有用数据的环境执行：
 
 ```bash
 docker compose down -v
 docker volume rm <物序数据卷>
+rm -rf <数据库数据目录>
 ```
 
 普通停止命令不会删除数据：
@@ -371,7 +391,7 @@ docker volume rm <物序数据卷>
 docker compose --env-file .env.production -f compose.production.yaml down
 ```
 
-如果需要清空、迁移或恢复数据，必须先明确列出将受影响的数据卷并获得用户确认。
+目录级备份必须先停止 `api`、`mysql` 和 `mongodb`，再整体复制或打包三个数据库目录；运行中的数据库文件不能直接复制。图片还需要单独备份 `object_production_data`。如果需要清空、迁移或恢复数据，必须先明确列出将受影响的目录和数据卷并获得用户确认。
 
 ## 执行完成后的回复格式
 
@@ -382,7 +402,7 @@ docker compose --env-file .env.production -f compose.production.yaml down
 3. 普通用户与管理员邮箱；若密码由 AI 生成，分别提供初始登录密码并提醒用户妥善保存。
 4. `docker compose ps` 的概括结果和 API 就绪检查结果，不输出密钥或 JWT。
 5. 部署目录和 `.env.production` 路径。
-6. 数据卷已保留、`SEED_INITIAL_USERS` 已关闭。
+6. 数据库目录与对象存储卷已保留、`SEED_INITIAL_USERS` 已关闭。
 7. 更新、查看日志和停止服务的常用命令。
 
 如果部署失败，报告失败步骤、相关服务、经过脱敏的关键日志、已经完成的操作，以及下一步需要用户提供的唯一信息。不要声称部署成功。

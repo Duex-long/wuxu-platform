@@ -20,7 +20,9 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - type: bind
+        source: ${MYSQL_DATA_PATH:-./data/mysql}
+        target: /var/lib/mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
       interval: 5s
@@ -34,7 +36,12 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - mongo_data:/data/db
+      - type: bind
+        source: ${MONGODB_DATA_PATH:-./data/mongodb}
+        target: /data/db
+      - type: bind
+        source: ${MONGODB_CONFIG_PATH:-./data/mongodb-config}
+        target: /data/configdb
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 5s
@@ -154,7 +161,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  mysql_data:
-  mongo_data:
   object_data:
 
