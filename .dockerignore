@@ -12,4 +12,5 @@ coverage
 !.env.example
 !.env.production.example
 *.log
+data
 

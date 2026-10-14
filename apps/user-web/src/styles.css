@@ -159,7 +159,8 @@ input:focus, select:focus, textarea:focus { border-color: #56715f; box-shadow: 0
 
 .create-card { width: min(780px, 100%); margin: 0 auto; }
 .item-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.item-form > label { min-width: 0; }
+.item-form > label { min-width: 0; align-content: start; }
+.item-form select { height: 44px; }
 .item-form .category-field select { min-width: 0; width: 100%; }
 .item-form .wide, .form-submit { grid-column: 1 / -1; }
 .form-submit { margin-top: 4px; }
