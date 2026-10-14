@@ -17,14 +17,15 @@ const pendingImages = ref<PendingImage[]>([]);
 const loading = ref(true);
 const saving = ref(false);
 const error = ref("");
+const DEFAULT_ITEM_UNIT = "件";
 
 const form = reactive({
   name: "",
   bigCategoryId: "",
   smallCategoryId: "",
   quantity: 1,
-  unit: "件",
   locationId: "",
+  hasExpiryDate: false,
   expiresOn: "",
   status: "UNUSED" as ItemStatus,
   isConsumable: false,
@@ -37,6 +38,11 @@ const smallCategoryOptions = computed(() => selectedBigCategory.value?.children 
 const hasUploadingImages = computed(() => pendingImages.value.some((image) => image.status === "uploading" || image.status === "pending"));
 const canSubmit = computed(() => categories.value.length > 0 && !saving.value && !hasUploadingImages.value);
 const showsConsumptionPlan = computed(() => form.isConsumable && form.status === "IN_USE");
+const consumableHint = computed(() => {
+  if (!form.isConsumable) return "例如食品、药品、清洁用品；未使用状态也可以先标记。";
+  if (form.status === "IN_USE") return "正在使用的消耗品需要填写预计使用天数。";
+  return "已保留消耗品属性，改为“使用中”时再填写预计使用天数。";
+});
 
 async function loadOptions(): Promise<void> {
   loading.value = true;
@@ -62,7 +68,7 @@ async function createItem(): Promise<void> {
       name: form.name,
       bigCategoryId: form.bigCategoryId,
       quantity: form.quantity,
-      unit: form.unit,
+      unit: DEFAULT_ITEM_UNIT,
       status: form.status,
       isConsumable: form.isConsumable,
       imageIds: pendingImages.value.flatMap((image) => image.status === "uploaded" && image.imageId ? [image.imageId] : []),
@@ -70,7 +76,7 @@ async function createItem(): Promise<void> {
     if (showsConsumptionPlan.value) body.expectedConsumptionDays = form.expectedConsumptionDays;
     if (form.smallCategoryId !== "") body.smallCategoryId = form.smallCategoryId;
     if (form.locationId !== "") body.locationId = form.locationId;
-    if (form.expiresOn !== "") body.expiresOn = form.expiresOn;
+    if (form.hasExpiryDate && form.expiresOn !== "") body.expiresOn = form.expiresOn;
     if (form.remark.trim() !== "") body.remark = form.remark.trim();
     await apiRequest<ItemSummary>("/items", { method: "POST", body: JSON.stringify(body) });
     clearPendingImages();
@@ -120,6 +126,9 @@ async function removePendingImage(image: PendingImage): Promise<void> {
 }
 
 function onBigCategoryChange(): void { form.smallCategoryId = ""; }
+function onExpiryToggle(): void {
+  if (!form.hasExpiryDate) form.expiresOn = "";
+}
 function clearPendingImages(): void {
   for (const image of pendingImages.value) if (image.previewUrl) URL.revokeObjectURL(image.previewUrl);
   pendingImages.value = [];
@@ -140,15 +149,23 @@ onBeforeUnmount(clearPendingImages);
         <p v-if="error" class="error-message">{{ error }}</p>
         <form class="item-form" @submit.prevent="createItem">
           <label class="wide">物品名称<input v-model.trim="form.name" required maxlength="120" placeholder="例如：旅行收纳箱" /></label>
-          <label>大类目<select v-model="form.bigCategoryId" required @change="onBigCategoryChange"><option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option></select><small>类目由管理员统一维护</small></label>
-          <label>小类目<select v-model="form.smallCategoryId"><option value="">不选择</option><option v-for="category in smallCategoryOptions" :key="category.id" :value="category.id">{{ category.name }}</option></select></label>
+          <label class="category-field">大类目<select v-model="form.bigCategoryId" required @change="onBigCategoryChange"><option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option></select><small>类目由管理员统一维护</small></label>
+          <label class="category-field">小类目<select v-model="form.smallCategoryId"><option value="">不选择</option><option v-for="category in smallCategoryOptions" :key="category.id" :value="category.id">{{ category.name }}</option></select></label>
           <label>数量<input v-model.number="form.quantity" type="number" min="0.001" step="0.001" required /></label>
-          <label>单位<input v-model.trim="form.unit" required maxlength="20" /></label>
           <label>存放位置<select v-model="form.locationId"><option value="">暂不设置</option><option v-for="location in locations" :key="location.id" :value="location.id">{{ location.name }}</option></select></label>
           <label>初始状态<select v-model="form.status"><option v-for="itemStatus in ITEM_STATUSES" :key="itemStatus" :value="itemStatus">{{ statusLabels[itemStatus] }}</option></select></label>
-          <label class="consumable-toggle wide"><input v-model="form.isConsumable" type="checkbox" /><span><strong>这是消耗品</strong><small>例如食品、药品、清洁用品；开始使用后按预计天数跟踪进度。</small></span></label>
+          <label :class="['option-toggle', 'wide', { 'is-selected': form.isConsumable }]">
+            <input v-model="form.isConsumable" type="checkbox" />
+            <span><strong>这是消耗品</strong><small>{{ consumableHint }}</small></span>
+            <em>{{ form.isConsumable ? "已选择" : "未选择" }}</em>
+          </label>
           <label v-if="showsConsumptionPlan" class="wide">预计使用天数<input v-model.number="form.expectedConsumptionDays" type="number" min="1" max="36500" step="1" required /><small>从登记为“使用中”当天开始计算，到期只提醒检查，不会自动改为已消耗。</small></label>
-          <label class="wide">到期日期<input v-model="form.expiresOn" type="date" /></label>
+          <label :class="['option-toggle', 'wide', { 'is-selected': form.hasExpiryDate }]">
+            <input v-model="form.hasExpiryDate" type="checkbox" @change="onExpiryToggle" />
+            <span><strong>有到期日期</strong><small>选填；勾选后再录入食品、药品等物品的到期日期。</small></span>
+            <em>{{ form.hasExpiryDate ? "已选择" : "未选择" }}</em>
+          </label>
+          <label v-if="form.hasExpiryDate" class="wide">到期日期<input v-model="form.expiresOn" type="date" required /></label>
           <label class="wide image-picker">物品图片<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple @change="handleImageSelection" /><small>最多 8 张，单张不超过 10MB；按选择顺序保存。</small></label>
           <div v-if="pendingImages.length" class="upload-grid wide">
             <article v-for="image in pendingImages" :key="image.key" :class="['upload-card', `upload-${image.status}`]">
