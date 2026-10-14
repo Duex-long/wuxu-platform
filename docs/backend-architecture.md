@@ -314,7 +314,7 @@ flowchart TB
 | `expiresOn` | 可选到期日 |
 | `status` | `IN_USE`、`UNUSED`、`DAMAGED`、`CONSUMED` |
 | `isConsumable` | 是否为消耗品；历史数据缺失时按 `false` 返回 |
-| `expectedConsumptionDays` | 使用中消耗品本轮预计使用天数，范围 1～36500 |
+| `expectedConsumptionDays` | 消耗品预计使用天数，范围 1～36500；非使用中状态也保留 |
 | `consumptionStartedAt` | 本轮进入使用中状态的开始时间 |
 | `imageIds` | 有顺序的图片媒体 ID 数组 |
 | `remark` | 可选备注，最长 1000 字符 |
@@ -453,7 +453,7 @@ stateDiagram-v2
 
 当前后端没有限制状态迁移图，所有枚举状态之间都可由资源所有者修改；上图表达常见业务路径，不是强制状态机。每次状态实际发生变化时，后端写入一条状态历史。
 
-消耗品进入 `IN_USE` 时必须提供预计使用天数，后端自动记录本轮开始时间；离开 `IN_USE` 时清除本轮进度，再次进入时开始新一轮。达到预计天数不会自动改为 `CONSUMED`，只返回 `dueForCheck` 供用户端和管理后台提示检查。
+物品被标记为消耗品时必须提供预计使用天数。进入 `IN_USE` 时后端自动记录本轮开始时间；离开 `IN_USE` 时清除本轮开始时间但保留预计天数，再次进入时沿用该周期并开始新一轮。达到预计天数不会自动改为 `CONSUMED`，只返回 `dueForCheck` 供用户端和管理后台提示检查。
 
 ### 11.4 管理员跨数据库查询
 

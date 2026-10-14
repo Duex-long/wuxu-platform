@@ -89,7 +89,7 @@ async function updateStatus(item: ItemSummary, status: ItemStatus, select: HTMLS
   if (item.status === status) return;
   error.value = "";
   const body: { status: ItemStatus; expectedConsumptionDays?: number } = { status };
-  if (item.isConsumable && status === "IN_USE") {
+  if (item.isConsumable && status === "IN_USE" && item.expectedConsumptionDays === undefined) {
     const days = requestExpectedConsumptionDays(item);
     if (days === null) {
       select.value = item.status;

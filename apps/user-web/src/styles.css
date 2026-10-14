@@ -74,6 +74,20 @@ input:focus, select:focus, textarea:focus { border-color: #56715f; box-shadow: 0
 .consumption-alert strong, .consumption-alert small { display: block; }
 .consumption-alert small { margin-top: 3px; color: #95665d; }
 .consumption-alert b { font-size: 12px; }
+.in-use-panel { margin-top: 18px; }
+.in-use-panel .section-heading > a { color: #3f644d; font-size: 12px; font-weight: 800; text-decoration: none; }
+.home-in-use-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.home-in-use-item { min-width: 0; padding: 16px; border: 1px solid #deded5; border-radius: 13px; background: #fff; }
+.home-in-use-title { display: flex; align-items: center; gap: 8px; }
+.home-in-use-title > strong { min-width: 0; overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+.home-in-use-item > p { margin: 7px 0 0; overflow: hidden; color: #788079; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.home-in-use-note { display: block; margin-top: 12px; color: #6a776f; }
+.home-consumption-progress { margin-top: 12px; padding: 9px 10px; border-radius: 9px; color: #405549; background: #eef4df; }
+.home-consumption-progress > span:first-child { display: flex; justify-content: space-between; gap: 10px; font-size: 10px; }
+.home-consumption-progress small { color: #6d796f; }
+.home-consumption-progress.is-due { color: #8d3f31; background: #fff0ed; }
+.home-consumption-progress.is-due .progress-track { background: #efd0c8; }
+.home-consumption-progress.is-due .progress-track i { background: #c65d49; }
 .entry-grid { margin: 24px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 .entry-card { min-height: 210px; padding: 26px; display: grid; grid-template-columns: auto 1fr; gap: 18px; border: 1px solid #dcddd4; border-radius: 18px; background: #fbfaf6; text-decoration: none; transition: transform .2s, box-shadow .2s; }
 .entry-card:hover { transform: translateY(-2px); box-shadow: 0 14px 35px rgba(35,55,43,.09); }
@@ -217,6 +231,8 @@ input:focus, select:focus, textarea:focus { border-color: #56715f; box-shadow: 0
   .consumption-alert { grid-template-columns: auto 1fr; }
   .consumption-alert b { grid-column: 2; }
   .entry-grid { grid-template-columns: 1fr; gap: 12px; }
+  .home-in-use-list { grid-template-columns: 1fr; }
+  .home-consumption-progress > span:first-child { align-items: flex-start; flex-direction: column; gap: 3px; }
   .entry-card { min-height: 170px; padding: 20px; }
   .location-grid, .search-filters, .item-form, .upload-grid, .location-search-form, .location-result-grid { grid-template-columns: 1fr; }
   .location-result-card { grid-template-columns: 105px minmax(0, 1fr); }

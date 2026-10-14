@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { InventoryStatistics, LocationSummary } from "@wuxu/shared-types";
+import type { InventoryStatistics, ItemSummary, LocationSummary, PaginatedResponse } from "@wuxu/shared-types";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
@@ -19,6 +19,8 @@ const emptyStats = (): InventoryStatistics => ({
 
 const router = useRouter();
 const statistics = ref<InventoryStatistics>(emptyStats());
+const inUseItems = ref<ItemSummary[]>([]);
+const inUseTotal = ref(0);
 const locations = ref<LocationSummary[]>([]);
 const locationPhotoUrls = ref<Record<string, string>>({});
 const loading = ref(true);
@@ -28,11 +30,14 @@ async function loadHome(): Promise<void> {
   loading.value = true;
   error.value = "";
   try {
-    const [overview, storageLocations] = await Promise.all([
+    const [overview, activeItems, storageLocations] = await Promise.all([
       apiRequest<InventoryStatistics>("/statistics/overview"),
+      apiRequest<PaginatedResponse<ItemSummary>>("/items?status=IN_USE&page=1&pageSize=6"),
       apiRequest<LocationSummary[]>("/locations"),
     ]);
     statistics.value = overview;
+    inUseItems.value = activeItems.items;
+    inUseTotal.value = activeItems.total;
     locations.value = storageLocations;
     await loadLocationPhotos(storageLocations);
   } catch (cause) {
@@ -83,6 +88,23 @@ onBeforeUnmount(releaseLocationPhotoUrls);
     <RouterLink v-if="statistics.consumablesDueForCheck > 0" class="consumption-alert" :to="{ name: 'item-search', query: { dueForCheck: '1' } }">
       <span>!</span><div><strong>{{ statistics.consumablesDueForCheck }} 件消耗品已达到预计使用天数</strong><small>请检查实际剩余量，再决定调整周期或改为已消耗。</small></div><b>去检查 →</b>
     </RouterLink>
+
+    <section class="card in-use-panel">
+      <div class="section-heading"><div><p class="eyebrow">ACTIVE ITEMS</p><h2>使用中物品</h2></div><RouterLink :to="{ name: 'item-search', query: { status: 'IN_USE' } }">查看全部 {{ inUseTotal }} 件 →</RouterLink></div>
+      <div v-if="loading" class="empty-state">正在读取使用中物品…</div>
+      <div v-else-if="inUseItems.length" class="home-in-use-list">
+        <article v-for="item in inUseItems" :key="item.id" class="home-in-use-item">
+          <div class="home-in-use-title"><strong>{{ item.name }}</strong><span v-if="item.isConsumable" class="consumable-pill">消耗品</span></div>
+          <p>{{ item.bigCategoryName }}<template v-if="item.smallCategoryName"> / {{ item.smallCategoryName }}</template> · {{ item.quantity }} {{ item.unit ?? '件' }}<template v-if="item.location"> · {{ item.location }}</template></p>
+          <div v-if="item.consumptionProgress" :class="['home-consumption-progress', { 'is-due': item.consumptionProgress.dueForCheck }]">
+            <span><strong>{{ item.consumptionProgress.elapsedDays }} / {{ item.consumptionProgress.expectedDays }} 天</strong><small>{{ item.consumptionProgress.dueForCheck ? '请检查剩余量' : `预计 ${item.consumptionProgress.expectedFinishedOn} 用完` }}</small></span>
+            <span class="progress-track"><i :style="{ width: `${item.consumptionProgress.percent}%` }"></i></span>
+          </div>
+          <small v-else class="home-in-use-note">当前状态为使用中</small>
+        </article>
+      </div>
+      <div v-else class="empty-state"><strong>暂无使用中物品</strong><span>物品状态改为“使用中”后会显示在这里。</span></div>
+    </section>
 
     <section class="entry-grid" aria-label="物品操作入口">
       <RouterLink class="entry-card entry-search" :to="{ name: 'item-search' }">

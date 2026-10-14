@@ -37,11 +37,11 @@ const selectedBigCategory = computed(() => categories.value.find((category) => c
 const smallCategoryOptions = computed(() => selectedBigCategory.value?.children ?? []);
 const hasUploadingImages = computed(() => pendingImages.value.some((image) => image.status === "uploading" || image.status === "pending"));
 const canSubmit = computed(() => categories.value.length > 0 && !saving.value && !hasUploadingImages.value);
-const showsConsumptionPlan = computed(() => form.isConsumable && form.status === "IN_USE");
+const showsConsumptionPlan = computed(() => form.isConsumable);
 const consumableHint = computed(() => {
   if (!form.isConsumable) return "例如食品、药品、清洁用品；未使用状态也可以先标记。";
-  if (form.status === "IN_USE") return "正在使用的消耗品需要填写预计使用天数。";
-  return "已保留消耗品属性，改为“使用中”时再填写预计使用天数。";
+  if (form.status === "IN_USE") return "需要填写预计使用天数，保存后立即开始计算进度。";
+  return "需要先填写预计使用天数，改为“使用中”时才开始计算进度。";
 });
 
 async function loadOptions(): Promise<void> {
@@ -159,7 +159,7 @@ onBeforeUnmount(clearPendingImages);
             <span><strong>这是消耗品</strong><small>{{ consumableHint }}</small></span>
             <em>{{ form.isConsumable ? "已选择" : "未选择" }}</em>
           </label>
-          <label v-if="showsConsumptionPlan" class="wide">预计使用天数<input v-model.number="form.expectedConsumptionDays" type="number" min="1" max="36500" step="1" required /><small>从登记为“使用中”当天开始计算，到期只提醒检查，不会自动改为已消耗。</small></label>
+          <label v-if="showsConsumptionPlan" class="wide">预计使用天数<input v-model.number="form.expectedConsumptionDays" type="number" min="1" max="36500" step="1" required /><small>先保存预计周期；物品进入“使用中”时才从当天开始计算，到期只提醒检查。</small></label>
           <label :class="['option-toggle', 'wide', { 'is-selected': form.hasExpiryDate }]">
             <input v-model="form.hasExpiryDate" type="checkbox" @change="onExpiryToggle" />
             <span><strong>有到期日期</strong><small>选填；勾选后再录入食品、药品等物品的到期日期。</small></span>

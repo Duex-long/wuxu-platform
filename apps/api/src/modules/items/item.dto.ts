@@ -64,7 +64,7 @@ export class CreateItemDto {
   @IsBoolean()
   isConsumable?: boolean;
 
-  @ApiPropertyOptional({ minimum: 1, maximum: 36500, description: "使用中消耗品预计使用完毕的天数" })
+  @ApiPropertyOptional({ minimum: 1, maximum: 36500, description: "消耗品预计使用完毕的天数；进入使用中后开始计算" })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -92,7 +92,7 @@ export class UpdateItemStatusDto {
   @IsIn(ITEM_STATUSES)
   status: ItemStatus;
 
-  @ApiPropertyOptional({ minimum: 1, maximum: 36500, description: "消耗品进入使用中状态时的预计使用天数" })
+  @ApiPropertyOptional({ minimum: 1, maximum: 36500, description: "兼容历史数据：消耗品进入使用中时可补充预计使用天数" })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

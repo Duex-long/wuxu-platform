@@ -35,7 +35,6 @@ export class ItemsService {
     const isConsumable = input.isConsumable ?? false;
     const expectedConsumptionDays = this.resolveExpectedConsumptionDays(
       isConsumable,
-      input.status,
       input.expectedConsumptionDays ?? null,
     );
     await this.mediaService.validateOwnership(ownerId, imageIds);
@@ -119,7 +118,6 @@ export class ItemsService {
       && item.consumptionStartedAt instanceof Date;
     const expectedConsumptionDays = this.resolveExpectedConsumptionDays(
       nextIsConsumable,
-      nextStatus,
       input.expectedConsumptionDays ?? item.expectedConsumptionDays ?? null,
     );
     if (nextStatus !== item.status) {
@@ -159,7 +157,6 @@ export class ItemsService {
     const item = await this.findDocument({ _id: this.toObjectId(id), ownerId, deletedAt: null });
     const expectedConsumptionDays = this.resolveExpectedConsumptionDays(
       Boolean(item.isConsumable),
-      status,
       requestedExpectedConsumptionDays ?? item.expectedConsumptionDays ?? null,
     );
     const wasActivelyConsumed = Boolean(item.isConsumable)
@@ -171,13 +168,18 @@ export class ItemsService {
       item.status = status;
       shouldSave = true;
     }
-    if (item.isConsumable && status === "IN_USE") {
-      if (!wasActivelyConsumed) {
-        item.consumptionStartedAt = new Date();
-        shouldSave = true;
-      }
+    if (item.isConsumable) {
       if (item.expectedConsumptionDays !== expectedConsumptionDays) shouldSave = true;
       item.expectedConsumptionDays = expectedConsumptionDays;
+      if (status === "IN_USE") {
+        if (!wasActivelyConsumed) {
+          item.consumptionStartedAt = new Date();
+          shouldSave = true;
+        }
+      } else if (item.consumptionStartedAt != null) {
+        item.consumptionStartedAt = null;
+        shouldSave = true;
+      }
     } else if (item.expectedConsumptionDays != null || item.consumptionStartedAt != null) {
       item.expectedConsumptionDays = null;
       item.consumptionStartedAt = null;
@@ -447,17 +449,16 @@ export class ItemsService {
 
   private resolveExpectedConsumptionDays(
     isConsumable: boolean,
-    status: ItemStatus,
     expectedConsumptionDays: number | null,
   ): number | null {
-    if (!isConsumable || status !== "IN_USE") return null;
+    if (!isConsumable) return null;
     if (
       expectedConsumptionDays === null
       || !Number.isInteger(expectedConsumptionDays)
       || expectedConsumptionDays < 1
       || expectedConsumptionDays > 36500
     ) {
-      throw new BadRequestException("使用中的消耗品必须填写 1 到 36500 天的预计使用天数");
+      throw new BadRequestException("消耗品必须填写 1 到 36500 天的预计使用天数");
     }
     return expectedConsumptionDays;
   }
