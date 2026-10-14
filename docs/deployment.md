@@ -1,5 +1,7 @@
 # 单机 Docker Compose 部署
 
+如果要把部署任务直接交给能够操作服务器的 AI，请使用 [`ai-deployment-guide.md`](ai-deployment-guide.md)。该文档包含可直接执行的版本锁定、配置生成、健康验证、回滚和数据保护约束。
+
 当前部署方案面向个人探索或单机部署。Web 和 Server 镜像由 GitHub Actions 构建并发布到 GHCR，
 部署机上的 Docker Compose 只拉取镜像，不需要 Node.js、pnpm 或项目源码。一个 Nginx 容器提供统一
 入口，NestJS、MySQL、MongoDB 和对象存储只在 Compose 内部网络通信，不直接暴露端口。

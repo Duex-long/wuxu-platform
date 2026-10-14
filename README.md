@@ -47,6 +47,8 @@ docker compose up -d
 
 从零启动、镜像部署、远程源码构建、默认账号和故障排查见 [`docs/local-deployment.md`](docs/local-deployment.md)。开发环境的固定版本与热更新说明见 [`docs/development.md`](docs/development.md)。
 
+需要把完整部署任务直接交给另一个 AI 执行时，使用 [`docs/ai-deployment-guide.md`](docs/ai-deployment-guide.md)。该指南包含版本锁定、密钥生成、启动验证、回滚和数据保护规则。
+
 后端的模块边界、数据架构、接口权限、核心流程、一致性策略与演进建议见 [`docs/backend-architecture.md`](docs/backend-architecture.md)。
 
 ## 单机部署
