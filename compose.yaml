@@ -86,7 +86,7 @@ services:
       MYSQL_USER: ${MYSQL_USER:-wuxu}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-wuxu_dev_password}
       MYSQL_SYNCHRONIZE: "true"
-      MONGODB_URI: mongodb://mongodb:27017/wuxu
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/wuxu}
       S3_ENDPOINT: http://object-storage:8333
       S3_REGION: us-east-1
       S3_BUCKET: wuxu-items

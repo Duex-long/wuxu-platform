@@ -1,0 +1,15 @@
+# MongoDB Atlas override for both compose.yaml and compose.production.yaml.
+# Requires Docker Compose 2.24.4+ for the !override YAML tag.
+services:
+  mongodb:
+    profiles:
+      - local-mongodb
+
+  api:
+    environment:
+      MONGODB_URI: "${MONGODB_URI:?Set MONGODB_URI to the MongoDB Atlas connection string}"
+    depends_on: !override
+      mysql:
+        condition: service_healthy
+      object-storage:
+        condition: service_healthy

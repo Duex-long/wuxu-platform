@@ -33,6 +33,7 @@
 | `MYSQL_DATA_PATH` | `<部署目录>/data/mysql` | MySQL 宿主机数据目录 |
 | `MONGODB_DATA_PATH` | `<部署目录>/data/mongodb` | MongoDB 宿主机数据目录 |
 | `MONGODB_CONFIG_PATH` | `<部署目录>/data/mongodb-config` | MongoDB 宿主机配置目录 |
+| `MONGODB_MODE` | `local` | `local` 使用 Compose 本地 MongoDB；`atlas` 使用 MongoDB Atlas |
 | `DEPLOY_MODE` | `image` | `image` 拉取镜像；`source` 从 Git 远程构建 |
 
 如果目标是远程服务器，但用户没有提供公网域名或访问地址，先用 `http://<服务器 IP>:8080` 向用户确认 `PUBLIC_ORIGIN`。仅在本机使用时可直接采用默认值。
@@ -44,7 +45,7 @@ Docker Compose 会启动以下服务：
 - `gateway`：Nginx、Vue 用户端和 Vue 管理后台。
 - `api`：NestJS API。
 - `mysql`：用户和身份数据。
-- `mongodb`：类目、位置、物品、状态历史和图片元数据。
+- `mongodb`：本地模式下保存类目、位置、物品、状态历史和图片元数据；Atlas 模式下不启动此服务。
 - `object-storage`：物品图片和位置照片文件。
 
 统一入口：
@@ -73,7 +74,7 @@ openssl version
 要求：
 
 - Docker Engine 或 Docker Desktop 可用。
-- Docker Compose 必须是支持 `docker compose` 的 v2 版本。
+- Docker Compose 必须是支持 `docker compose` 的 v2 版本；Atlas 模式必须为 `2.24.4` 或更高版本。
 - Git、curl 和 OpenSSL 可用。
 - 镜像部署需要能够访问 GitHub、GHCR 和 Docker Hub。
 - 远程源码构建还需要 Docker BuildKit 能够访问 GitHub。
@@ -202,7 +203,7 @@ WUXU_RANDOM_VALUE="$(openssl rand -hex 32)"
 
 `SEED_INITIAL_USERS=true` 只用于没有历史数据库的首次部署。已有部署应保留当前值，不得为了重置密码而重新启用种子账号。初始化逻辑不会覆盖已存在用户的密码。
 
-数据库目录必须位于目标主机的本地磁盘。相对路径以 `compose.production.yaml` 所在目录为基准；如果用户指定备份盘，使用绝对路径。不得把数据库目录放到 Git、网盘同步目录或多台主机同时写入的共享目录。首次部署创建目录：
+本地数据库目录必须位于目标主机的本地磁盘。相对路径以 `compose.production.yaml` 所在目录为基准；如果用户指定备份盘，使用绝对路径。不得把数据库目录放到 Git、网盘同步目录或多台主机同时写入的共享目录。首次部署创建目录：
 
 默认路径使用：
 
@@ -210,11 +211,31 @@ WUXU_RANDOM_VALUE="$(openssl rand -hex 32)"
 mkdir -p data/mysql data/mongodb data/mongodb-config
 ```
 
-如果 `.env.production` 配置的是绝对路径，改为创建三个实际绝对目录，不要原样使用默认命令。
+如果 `.env.production` 配置的是绝对路径，改为创建实际绝对目录，不要原样使用默认命令。Atlas 模式只需创建 MySQL 目录，不创建两个 MongoDB 目录。
 
 如果已有部署仍使用 Docker 命名卷，不得直接用空目录启动。执行 AI 必须先从仍连接旧卷的 MySQL 容器生成包含 `--single-transaction` 和 `--no-tablespaces` 的逻辑 SQL 备份，再停止 `api`、`mysql` 和 `mongodb`。MySQL 底层数据文件不得从 Linux volume 直接复制到 macOS 或 Windows bind mount，因为文件系统大小写规则可能不兼容；新目录初始化后用 SQL 恢复。MongoDB 在干净停机后可通过只读源挂载完整复制到空目录。所有来源先通过 `docker inspect` 确认，迁移后核对表/集合数量和 API 健康状态，并保留旧卷，不自动删除。MongoDB `/data/configdb` 的旧匿名卷也应检查并按需复制。
 
 项目当前还没有正式 TypeORM migration，因此个人单机部署必须保持 `MYSQL_SYNCHRONIZE=true` 才能自动建表。若要作为面向公网的正式生产系统使用，应先补齐数据库迁移，再评估关闭自动同步，不能直接在现有指南中改成 `false`。
+
+### MongoDB Atlas 分支
+
+仅当用户明确指定 `MONGODB_MODE=atlas` 时启用。执行 AI 必须确认：Atlas 项目中已有集群和数据库用户，目标主机公网 IP/CIDR 已加入 IP Access List，并取得 Atlas Connect 页面生成的驱动连接串。Atlas 网页登录、Admin API 或 AI 密钥都不是数据库连接串，不能填入 `MONGODB_URI`。
+
+将实际连接串只写入权限为 `600` 的 `.env.production`，不要在终端输出、聊天回复、Git 提交或完整 Compose 配置中展示：
+
+```dotenv
+MONGODB_URI='mongodb+srv://<database-user>:<url-encoded-password>@<cluster>.mongodb.net/wuxu?retryWrites=true&w=majority'
+```
+
+密码中的 URI 保留字符必须先 URL 编码。连接信息缺失时停止 Atlas 启动步骤，让用户直接在目标主机的 `.env.production` 中填写，不能要求用户把密码或完整连接串粘贴到聊天。
+
+Atlas 模式下不创建或迁移本地 MongoDB 数据目录，除非用户另行要求迁移。所有生产 Compose 命令都必须在原有文件参数末尾追加：
+
+```text
+-f compose.mongodb-atlas.yaml
+```
+
+源码构建模式的文件顺序必须是 `compose.production.yaml`、`compose.source-build.yaml`、`compose.mongodb-atlas.yaml`。不得遗漏 Atlas 覆盖文件，否则会意外启动本地 MongoDB。
 
 `PUBLIC_ORIGIN` 必须与用户实际访问的协议、主机和端口一致；修改 `WEB_PORT` 时也要同步修改本机 Origin。使用 HTTPS 域名时写成真实地址，例如 `https://inventory.example.com`，不要添加末尾斜杠。TLS 通常由服务器外层的 Caddy、Traefik、云负载均衡或反向代理负责，并将流量转发到 `WEB_PORT`。
 
@@ -226,12 +247,20 @@ mkdir -p data/mysql data/mongodb data/mongodb-config
 docker compose --env-file .env.production -f compose.production.yaml config --quiet
 ```
 
+Atlas 模式改为：
+
+```bash
+docker compose --env-file .env.production -f compose.production.yaml -f compose.mongodb-atlas.yaml config --quiet
+```
+
 拉取并启动固定版本镜像：
 
 ```bash
 docker compose --env-file .env.production -f compose.production.yaml pull
 docker compose --env-file .env.production -f compose.production.yaml up -d --pull always
 ```
+
+Atlas 模式的 `pull` 和 `up` 也必须追加 `-f compose.mongodb-atlas.yaml`。
 
 不要执行 `docker compose config` 后把完整输出发到聊天，因为展开后的环境变量可能包含密钥。
 
@@ -245,7 +274,8 @@ docker compose --env-file .env.production -f compose.production.yaml ps
 
 预期结果：
 
-- `mysql`、`mongodb`、`object-storage`、`api` 显示为 `healthy`。
+- 本地模式下 `mysql`、`mongodb`、`object-storage`、`api` 显示为 `healthy`。
+- Atlas 模式下 `mongodb` 不启动，`mysql`、`object-storage`、`api` 显示为 `healthy`。
 - `gateway` 显示为 `running` 或 `healthy`。
 - 不应出现持续重启、`unhealthy` 或 `exited`。
 
@@ -377,6 +407,8 @@ docker compose --env-file .env.production -f compose.production.yaml logs --tail
 - `MONGODB_CONFIG_PATH`（默认 `./data/mongodb-config`）：MongoDB 本地配置数据。
 - `object_production_data` Docker volume：图片文件。
 
+上述 MongoDB 目录只适用于 `MONGODB_MODE=local`。`MONGODB_MODE=atlas` 时物品领域数据在 Atlas，执行 AI 必须确认 Atlas 备份策略或逻辑导出方案；空的本地 `data/mongodb*` 目录不是云端数据备份。MySQL 和图片数据仍按本地目录/卷保护。
+
 以下命令禁止在有用数据的环境执行：
 
 ```bash
@@ -391,7 +423,7 @@ rm -rf <数据库数据目录>
 docker compose --env-file .env.production -f compose.production.yaml down
 ```
 
-目录级备份必须先停止 `api`、`mysql` 和 `mongodb`，再整体复制或打包三个数据库目录；运行中的数据库文件不能直接复制。图片还需要单独备份 `object_production_data`。如果需要清空、迁移或恢复数据，必须先明确列出将受影响的目录和数据卷并获得用户确认。
+本地 MongoDB 模式的目录级备份必须先停止 `api`、`mysql` 和 `mongodb`，再整体复制或打包三个数据库目录；运行中的数据库文件不能直接复制。Atlas 模式不复制本地 MongoDB 目录，必须使用 Atlas 备份或逻辑导出。图片还需要单独备份 `object_production_data`。如果需要清空、迁移或恢复数据，必须先明确列出将受影响的目录、云端集群和数据卷并获得用户确认。
 
 ## 执行完成后的回复格式
 

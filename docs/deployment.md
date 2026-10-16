@@ -4,7 +4,7 @@
 
 当前部署方案面向个人探索或单机部署。Web 和 Server 镜像由 GitHub Actions 构建并发布到 GHCR，
 部署机上的 Docker Compose 只拉取镜像，不需要 Node.js、pnpm 或项目源码。一个 Nginx 容器提供统一
-入口，NestJS、MySQL、MongoDB 和对象存储只在 Compose 内部网络通信，不直接暴露端口。
+入口，NestJS、MySQL、本地 MongoDB 和对象存储只在 Compose 内部网络通信，不直接暴露端口。物品领域数据也可以切换到 MongoDB Atlas；Atlas 模式不会启动本地 MongoDB 容器。
 
 如果部署机必须自行获取源码并构建，可以在本文件基础上叠加
 [`compose.source-build.yaml`](../compose.source-build.yaml)。该覆盖文件把 Git 仓库作为 BuildKit 远程构建上下文，具体命令见[本地部署指南](local-deployment.md#方式三-运行-compose-时自动拉取源码)。
@@ -61,11 +61,33 @@ docker compose --env-file .env.production -f compose.production.yaml up -d
 项目当前还没有正式迁移脚本，所以个人部署示例默认使用 `MYSQL_SYNCHRONIZE=true` 自动建表。
 在面向公网或正式生产部署前，应先补齐 TypeORM migration，再将该值固定为 `false`。
 
+### MongoDB Atlas 在线数据库
+
+Atlas 模式需要 Docker Compose `2.24.4` 或更高版本，以及 Atlas 项目中的集群、数据库用户和允许部署机访问的 IP Access List。Atlas 控制台/API/AI 密钥不能作为数据库连接串使用。
+
+从 Atlas 的 Connect 页面复制驱动连接串，在本地且不会提交 Git 的 `.env.production` 中填写：
+
+```dotenv
+MONGODB_URI='mongodb+srv://<database-user>:<url-encoded-password>@<cluster>.mongodb.net/wuxu?retryWrites=true&w=majority'
+```
+
+数据库用户密码中的保留字符必须进行 URL 编码。不要把真实连接串写入 Compose 文件、提交到 Git 或发送到日志。使用 Atlas 覆盖文件校验、拉取并启动：
+
+```bash
+docker compose --env-file .env.production -f compose.production.yaml -f compose.mongodb-atlas.yaml config --quiet
+docker compose --env-file .env.production -f compose.production.yaml -f compose.mongodb-atlas.yaml pull
+docker compose --env-file .env.production -f compose.production.yaml -f compose.mongodb-atlas.yaml up -d --pull always
+```
+
+Atlas 模式下 `mongodb` 服务不会启动，`api` 会直接通过 TLS 连接 Atlas。用 `/api/health/ready` 验证 MongoDB 状态；备份和恢复应使用 Atlas 自身的备份能力或逻辑导出，`MONGODB_DATA_PATH` 与 `MONGODB_CONFIG_PATH` 不再承载物品数据。
+
 ## 停止服务
 
 ```bash
 docker compose --env-file .env.production -f compose.production.yaml down
 ```
+
+Atlas 模式停止、更新或查看状态时，继续追加 `-f compose.mongodb-atlas.yaml`，确保操作的是同一个 Compose 模型。
 
 该命令不会删除数据库宿主机目录或对象存储卷。不要使用 `down -v`，因为它会删除图片对象存储卷；MySQL 与 MongoDB 的 bind mount 目录需要单独管理和备份。
 

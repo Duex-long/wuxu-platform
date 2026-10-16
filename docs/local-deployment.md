@@ -2,7 +2,7 @@
 
 本指南用于在个人电脑或单机服务器上运行完整的物序系统。项目的 Node.js、pnpm、MySQL、MongoDB 和对象存储版本均由 Docker 固定，宿主机不需要单独安装这些运行时。
 
-物序提供两种本地运行方式：
+物序提供三种本地运行方式：
 
 | 模式 | 适用场景 | 对外端口 | Web 来源 |
 | --- | --- | --- | --- |
@@ -11,6 +11,8 @@
 | 远程源码构建模式 | 部署机自动拉取指定 Git 版本并自行构建 | 默认只暴露 `8080` | Docker BuildKit 从 Git 获取源码 |
 
 如果只是使用系统而不修改代码，建议选择单机运行模式。如果需要继续开发功能，选择源码开发模式。只有明确要求部署机自行编译时，才选择远程源码构建模式。
+
+三种运行方式默认都使用 Compose 内的本地 MongoDB。也可以叠加 `compose.mongodb-atlas.yaml`，把物品领域数据切换到 MongoDB Atlas，并停用本地 `mongodb` 服务。
 
 ## 部署前准备
 
@@ -254,7 +256,7 @@ Docker Compose 本身不应在已经启动的业务容器中执行 `git pull`。
 
 ### 1. 准备最小部署目录
 
-部署机不需要克隆完整仓库，只需保存两个 Compose 文件和一份本地环境文件：
+部署机不需要克隆完整仓库。本地 MongoDB 模式只需保存两个 Compose 文件和一份本地环境文件；Atlas 模式还要保存 `compose.mongodb-atlas.yaml`：
 
 ```bash
 mkdir wuxu-deploy
@@ -263,6 +265,12 @@ curl -fsSL https://raw.githubusercontent.com/Duex-long/wuxu-platform/main/compos
 curl -fsSL https://raw.githubusercontent.com/Duex-long/wuxu-platform/main/compose.source-build.yaml -o compose.source-build.yaml
 curl -fsSL https://raw.githubusercontent.com/Duex-long/wuxu-platform/main/.env.production.example -o .env.production
 chmod 600 .env.production
+```
+
+仅 Atlas 模式额外下载：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Duex-long/wuxu-platform/main/compose.mongodb-atlas.yaml -o compose.mongodb-atlas.yaml
 ```
 
 Compose 文件负责描述部署，业务源码会在后续构建阶段由 BuildKit 从 `SOURCE_GIT_URL` 获取。
@@ -330,6 +338,49 @@ docker compose \
   down
 ```
 
+## 可选：使用 MongoDB Atlas 在线数据库
+
+Atlas 模式适用于源码开发、镜像部署和远程源码构建。准备条件：
+
+- Docker Compose `2.24.4` 或更高版本。
+- Atlas 项目中已有可连接的集群。
+- 已创建 Atlas 数据库用户；该账号与 Atlas 网页登录账号不同。
+- 当前开发机或部署机的公网 IP/CIDR 已加入项目 IP Access List。
+- 已从 Atlas Connect 页面取得驱动连接串。Atlas 控制台/API/AI 密钥不能代替数据库连接串。
+
+把连接串只写入不会提交 Git 的 `.env` 或 `.env.production`：
+
+```dotenv
+MONGODB_URI='mongodb+srv://<database-user>:<url-encoded-password>@<cluster>.mongodb.net/wuxu?retryWrites=true&w=majority'
+```
+
+密码中的保留字符需要 URL 编码。不要把真实连接串写进 Compose 文件或发送到聊天、日志。源码开发模式使用：
+
+```bash
+docker compose -f compose.yaml -f compose.mongodb-atlas.yaml config --quiet
+docker compose -f compose.yaml -f compose.mongodb-atlas.yaml up -d --build
+```
+
+生产镜像模式使用：
+
+```bash
+docker compose --env-file .env.production -f compose.production.yaml -f compose.mongodb-atlas.yaml config --quiet
+docker compose --env-file .env.production -f compose.production.yaml -f compose.mongodb-atlas.yaml up -d --pull always
+```
+
+远程源码构建模式同时叠加两个覆盖文件，Atlas 文件放在最后：
+
+```bash
+docker compose \
+  --env-file .env.production \
+  -f compose.production.yaml \
+  -f compose.source-build.yaml \
+  -f compose.mongodb-atlas.yaml \
+  up -d --build
+```
+
+后续 `ps`、`logs`、`restart`、`down` 和更新命令必须继续使用相同的 `-f` 文件组合。此模式下 `mongodb` 不会出现在运行服务中；用 `/api/health/ready` 确认 Atlas 连接为 `up`。物品数据的备份和恢复使用 Atlas 自身的备份能力或 `mongodump`/`mongorestore`，本地 `data/mongodb*` 目录不再承载物品数据。
+
 ## 日常运维命令
 
 源码开发模式：
@@ -362,6 +413,8 @@ docker compose --env-file .env.production -f compose.production.yaml down
 - `data/mongodb`：MongoDB 类目、存放位置、物品、状态记录和图片元数据。
 - `data/mongodb-config`：MongoDB 本地配置数据。
 - SeaweedFS 图片文件仍保存在 Docker 命名卷 `object_data` 或 `object_production_data`。
+
+以上 MongoDB 目录说明只适用于本地 MongoDB 模式。Atlas 模式下 MongoDB 数据保存在 Atlas，必须单独配置云端备份或逻辑导出；MySQL 和 SeaweedFS 仍按上述本地路径/卷保存。
 
 `docker compose down` 和 `docker compose down -v` 都不会删除上述宿主机数据库目录；但 `down -v` 会删除 SeaweedFS 命名卷，因此有图片数据时仍然禁止使用 `-v`。
 

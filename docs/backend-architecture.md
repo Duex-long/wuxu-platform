@@ -556,7 +556,7 @@ stateDiagram-v2
 | HTTP | `PORT`、`CORS_ORIGINS` |
 | JWT | `JWT_SECRET`、`JWT_EXPIRES_IN` |
 | MySQL | `MYSQL_HOST`、`MYSQL_PORT`、`MYSQL_DATABASE`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_SYNCHRONIZE`；Compose 使用 `MYSQL_DATA_PATH` 配置宿主机持久化目录 |
-| MongoDB | `MONGODB_URI`；Compose 使用 `MONGODB_DATA_PATH`、`MONGODB_CONFIG_PATH` 配置宿主机持久化目录 |
+| MongoDB | `MONGODB_URI`；默认连接 Compose 本地 MongoDB，并用 `MONGODB_DATA_PATH`、`MONGODB_CONFIG_PATH` 配置宿主机持久化目录；叠加 `compose.mongodb-atlas.yaml` 时连接 Atlas 并停用本地 MongoDB 服务 |
 | S3 | `S3_ENDPOINT`、`S3_REGION`、`S3_BUCKET`、`S3_ACCESS_KEY`、`S3_SECRET_KEY` |
 | 开发种子 | `SEED_DEV_USERS` 及开发用户/管理员账号变量 |
 
@@ -590,11 +590,11 @@ flowchart TB
     GW -->|/admin/*| ADMIN[Admin SPA 静态文件]
     GW -->|/*| USER[User SPA 静态文件]
     API --> MYSQL[(MySQL 宿主机数据目录)]
-    API --> MONGO[(MongoDB 宿主机数据目录)]
+    API --> MONGO[(MongoDB 本地目录或 Atlas)]
     API --> S3[(对象存储持久卷)]
 ```
 
-只有 Nginx 对外暴露端口。MySQL、MongoDB、对象存储和 API 位于 Compose 内部网络。API 等待三个存储健康后启动，网关等待 API 健康后提供服务。
+只有 Nginx 对外暴露端口。本地模式下 MySQL、MongoDB、对象存储和 API 位于 Compose 内部网络，API 等待三个存储健康后启动；Atlas 模式下 API 不再依赖本地 MongoDB 容器，而是通过 TLS 出站连接 Atlas。网关始终等待 API 健康后提供服务。
 
 ### 17.3 路由约定
 

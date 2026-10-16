@@ -24,6 +24,14 @@ docker compose up --build
 
 MySQL 与 MongoDB 默认直接写入仓库旁的 `data/` 目录，便于查看、整体备份和迁移；该目录已被 Git 忽略。可以在 `.env` 中通过 `MYSQL_DATA_PATH`、`MONGODB_DATA_PATH` 和 `MONGODB_CONFIG_PATH` 改为其他本地绝对路径。
 
+需要在开发环境连接 MongoDB Atlas 时，将 Atlas 驱动连接串写入未跟踪的 `.env` 的 `MONGODB_URI`，并运行：
+
+```bash
+docker compose -f compose.yaml -f compose.mongodb-atlas.yaml up --build
+```
+
+Atlas 模式要求 Docker Compose `2.24.4+`，不会启动本地 `mongodb` 服务。部署机网络必须在 Atlas IP Access List 中，连接串必须使用 Atlas 数据库用户；控制台/API/AI 密钥不能代替数据库连接串。
+
 启动完成后：
 
 - 用户端：http://localhost:5173
